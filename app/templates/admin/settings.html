@@ -1,0 +1,116 @@
+{% extends "admin/base.html" %}
+
+{% set active_nav = "settings" %}
+{% block title %}Settings — Sunset Swimming Pool Admin{% endblock %}
+{% block header_title %}Admin Settings{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="mb-lg px-lg py-3 rounded-xl bg-error-container text-on-error-container font-body-md">{{ error }}</div>
+{% endif %}
+
+<div class="flex justify-between items-center mb-lg">
+    <div>
+        <h2 class="font-headline-lg text-headline-lg text-primary">Facility Pricing</h2>
+        <p class="font-body-md text-body-md text-on-surface-variant">Manage pools and their weekday/weekend rates.</p>
+    </div>
+    <button class="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-xl font-label-md text-label-md hover:opacity-90 transition-all" onclick="document.getElementById('add-pool-dialog').showModal()" type="button">
+        <span class="material-symbols-outlined text-[20px]">add_circle</span>
+        Add Pool
+    </button>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-lg">
+    {% for pool in pools %}
+    <div class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant flex flex-col gap-md {{ '' if pool.is_active else 'opacity-50' }}">
+        <div class="flex items-center gap-md">
+            <div class="w-12 h-12 rounded-lg bg-secondary-container flex items-center justify-center">
+                <span class="material-symbols-outlined text-on-secondary-container text-3xl">pool</span>
+            </div>
+            <div class="flex-1">
+                <h3 class="font-title-md text-title-md text-on-surface">{{ pool.name }}</h3>
+                <p class="font-caption text-caption text-on-surface-variant">Capacity: {{ pool.capacity }}{{ '' if pool.is_active else ' — Inactive' }}</p>
+            </div>
+        </div>
+        <div class="space-y-2 py-md">
+            <div class="flex justify-between items-center">
+                <span class="font-label-md text-on-surface-variant">Weekday Price</span>
+                <span class="font-title-md text-primary">{{ "$%.2f"|format(pool.weekday_price) if pool.weekday_price is not none else "—" }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="font-label-md text-on-surface-variant">Weekend Price</span>
+                <span class="font-title-md text-primary">{{ "$%.2f"|format(pool.weekend_price) if pool.weekend_price is not none else "—" }}</span>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <button class="flex-1 py-3 bg-secondary text-on-secondary font-label-md rounded-lg hover:opacity-90 transition-all" onclick="document.getElementById('price-dialog-{{ pool.id }}').showModal()" type="button">
+                Change price
+            </button>
+            <form action="/admin/settings/pools/{{ pool.id }}/toggle-active" method="post">
+                <button class="py-3 px-4 border border-outline-variant text-on-surface-variant font-label-md rounded-lg hover:bg-surface-container transition-all" type="submit">
+                    {{ 'Deactivate' if pool.is_active else 'Activate' }}
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <dialog id="price-dialog-{{ pool.id }}" class="rounded-xl w-full max-w-sm">
+        <div class="bg-surface-container-lowest w-full rounded-xl shadow-2xl overflow-hidden border border-outline-variant">
+            <div class="p-lg border-b border-outline-variant flex justify-between items-center">
+                <h3 class="font-title-md text-title-md text-primary">{{ pool.name }} — Pricing</h3>
+                <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" onclick="document.getElementById('price-dialog-{{ pool.id }}').close()" type="button">close</button>
+            </div>
+            <form method="post" action="/admin/settings/pools/{{ pool.id }}/pricing">
+                <div class="p-lg space-y-4">
+                    <div class="space-y-1">
+                        <label class="font-label-md text-label-md text-on-surface-variant">Weekday Price</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
+                            <input class="w-full pl-8 pr-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md focus:ring-2 focus:ring-secondary outline-none" min="0" name="weekday_price" required step="0.01" type="number" value="{{ pool.weekday_price if pool.weekday_price is not none else '' }}">
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="font-label-md text-label-md text-on-surface-variant">Weekend Price</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
+                            <input class="w-full pl-8 pr-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md focus:ring-2 focus:ring-secondary outline-none" min="0" name="weekend_price" required step="0.01" type="number" value="{{ pool.weekend_price if pool.weekend_price is not none else '' }}">
+                        </div>
+                    </div>
+                </div>
+                <div class="p-lg bg-surface-container-low flex justify-end gap-3">
+                    <button class="px-lg py-2 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container transition-colors" onclick="document.getElementById('price-dialog-{{ pool.id }}').close()" type="button">Cancel</button>
+                    <button class="px-lg py-2 bg-primary-container text-white rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity" type="submit">Save Prices</button>
+                </div>
+            </form>
+        </div>
+    </dialog>
+    {% else %}
+    <div class="md:col-span-2 bg-white rounded-xl border border-outline-variant p-xl text-center font-body-md text-on-surface-variant">No pools yet. Add one to get started.</div>
+    {% endfor %}
+</div>
+
+<dialog id="add-pool-dialog" class="rounded-xl w-full max-w-sm">
+    <div class="bg-surface-container-lowest w-full rounded-xl shadow-2xl overflow-hidden border border-outline-variant">
+        <div class="p-lg border-b border-outline-variant flex justify-between items-center">
+            <h3 class="font-title-md text-title-md text-primary">Add Pool</h3>
+            <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" onclick="document.getElementById('add-pool-dialog').close()" type="button">close</button>
+        </div>
+        <form method="post" action="/admin/settings/pools">
+            <div class="p-lg space-y-4">
+                <div class="space-y-1">
+                    <label class="font-label-md text-label-md text-on-surface-variant">Pool Name</label>
+                    <input class="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md focus:ring-2 focus:ring-secondary outline-none" name="name" placeholder="e.g., Big Pool" required type="text">
+                </div>
+                <div class="space-y-1">
+                    <label class="font-label-md text-label-md text-on-surface-variant">Capacity</label>
+                    <input class="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md focus:ring-2 focus:ring-secondary outline-none" min="1" name="capacity" required type="number" value="20">
+                </div>
+            </div>
+            <div class="p-lg bg-surface-container-low flex justify-end gap-3">
+                <button class="px-lg py-2 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container transition-colors" onclick="document.getElementById('add-pool-dialog').close()" type="button">Cancel</button>
+                <button class="px-lg py-2 bg-primary-container text-white rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity" type="submit">Save Pool</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+{% endblock %}

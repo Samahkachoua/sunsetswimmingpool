@@ -1,0 +1,169 @@
+{% extends "admin/base.html" %}
+
+{% set active_nav = "enrollments" %}
+{% block title %}Enrollments — Sunset Swimming Pool Admin{% endblock %}
+{% block header_title %}Enrollment Management{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="mb-lg px-lg py-3 rounded-xl bg-error-container text-on-error-container font-body-md">{{ error }}</div>
+{% endif %}
+<div class="flex justify-between items-center mb-lg">
+    <div>
+        <h2 class="font-headline-lg text-headline-lg text-primary-container">Enrollments</h2>
+        <p class="font-body-md text-body-md text-on-surface-variant">Manage and track all student registrations.</p>
+    </div>
+</div>
+
+<div class="bg-white rounded-xl overflow-hidden border border-surface-container-high shadow-[0px_4px_20px_rgba(11,37,69,0.08)]">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-surface-container-low border-b border-surface-container-high">
+                    <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Name</th>
+                    <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Age</th>
+                    <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Level</th>
+                    <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Preferred Time</th>
+                    <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Amount</th>
+                    <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Paid</th>
+                    <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-surface-container-low">
+                {% for enrollment in enrollments %}
+                <tr class="hover:bg-surface-container-lowest transition-colors">
+                    <td class="px-6 py-4">
+                        <p class="font-label-md text-label-md text-primary">{{ enrollment.participants.full_name }}</p>
+                    </td>
+                    <td class="px-6 py-4 font-body-md text-body-md text-on-surface">{{ enrollment.age }}</td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-bold uppercase tracking-tighter bg-surface-container text-primary">{{ enrollment.level | capitalize }}</span>
+                    </td>
+                    <td class="px-6 py-4 font-body-md text-body-md text-on-surface">{{ enrollment.time_preferred | capitalize }}</td>
+                    <td class="px-6 py-4 font-label-md text-label-md text-primary">${{ "%.2f"|format(enrollment.price) }}</td>
+                    <td class="px-6 py-4 font-label-md text-label-md {{ 'text-secondary' if enrollment.paid > 0 else 'text-error' }}">${{ "%.2f"|format(enrollment.paid) }}</td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 rounded text-xs font-bold uppercase tracking-wider {{ status_classes.get(enrollment.status, 'bg-surface-container text-on-surface-variant') }}">{{ enrollment.status | capitalize }}</span>
+                    </td>
+                    <td class="px-6 py-4 text-right whitespace-nowrap">
+                        <button class="p-2 text-on-surface-variant hover:text-primary transition-colors" onclick="document.getElementById('edit-dialog-{{ enrollment.id }}').showModal()" title="Edit" type="button">
+                            <span class="material-symbols-outlined">edit</span>
+                        </button>
+                        <button class="p-2 text-on-surface-variant hover:text-secondary transition-colors" onclick="document.getElementById('payment-dialog-{{ enrollment.id }}').showModal()" title="Record payment" type="button">
+                            <span class="material-symbols-outlined">payments</span>
+                        </button>
+                        <form action="/admin/enrollments/{{ enrollment.id }}/delete" method="post" class="inline" onsubmit="return confirm('Delete this enrollment? This cannot be undone.');">
+                            <button class="p-2 text-on-surface-variant hover:text-error transition-colors" title="Delete" type="submit">
+                                <span class="material-symbols-outlined">delete</span>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td class="px-6 py-8 text-center font-body-md text-on-surface-variant" colspan="8">No enrollments yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% for enrollment in enrollments %}
+<dialog id="edit-dialog-{{ enrollment.id }}" class="rounded-xl w-full max-w-md">
+    <div class="bg-surface w-full rounded-xl shadow-md overflow-hidden border border-outline-variant">
+        <div class="p-6 border-b border-outline-variant flex justify-between items-center">
+            <h3 class="font-title-md text-title-md text-primary-container">Edit Enrollment Details</h3>
+            <button class="text-on-surface-variant hover:text-error transition-colors" onclick="document.getElementById('edit-dialog-{{ enrollment.id }}').close()" type="button">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <form method="post" action="/admin/enrollments/{{ enrollment.id }}/edit">
+            <div class="p-6 space-y-4">
+                <div class="space-y-2">
+                    <label class="font-label-md text-label-md text-on-surface-variant">Preferred Time</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input class="text-secondary focus:ring-secondary" name="time_preferred" type="radio" value="morning" {{ 'checked' if enrollment.time_preferred == 'morning' }}>
+                            <span class="font-body-md text-body-md">Morning</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input class="text-secondary focus:ring-secondary" name="time_preferred" type="radio" value="afternoon" {{ 'checked' if enrollment.time_preferred == 'afternoon' }}>
+                            <span class="font-body-md text-body-md">Afternoon</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <label class="font-label-md text-label-md text-on-surface-variant">Level</label>
+                    <select class="w-full p-2.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="level">
+                        <option value="beginner" {{ 'selected' if enrollment.level == 'beginner' }}>Beginner</option>
+                        <option value="intermediate" {{ 'selected' if enrollment.level == 'intermediate' }}>Intermediate</option>
+                        <option value="advanced" {{ 'selected' if enrollment.level == 'advanced' }}>Advanced</option>
+                    </select>
+                </div>
+                <div class="space-y-2">
+                    <label class="font-label-md text-label-md text-on-surface-variant">Status</label>
+                    <select class="w-full p-2.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="status">
+                        <option value="pending" {{ 'selected' if enrollment.status == 'pending' }}>Pending</option>
+                        <option value="confirmed" {{ 'selected' if enrollment.status == 'confirmed' }}>Confirmed</option>
+                        <option value="completed" {{ 'selected' if enrollment.status == 'completed' }}>Completed</option>
+                    </select>
+                </div>
+                <div class="space-y-2">
+                    <label class="font-label-md text-label-md text-on-surface-variant">Amount</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant font-body-md">$</span>
+                        <input class="w-full pl-8 pr-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" min="0" name="price" required step="0.01" type="number" value="{{ enrollment.price }}">
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 bg-surface-container-low flex justify-end gap-3">
+                <button class="px-6 py-2.5 rounded-xl font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high transition-all border border-outline-variant" onclick="document.getElementById('edit-dialog-{{ enrollment.id }}').close()" type="button">Cancel</button>
+                <button class="px-6 py-2.5 rounded-xl font-label-md text-label-md bg-primary-container text-white hover:opacity-90 transition-all shadow-sm" type="submit">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<dialog id="payment-dialog-{{ enrollment.id }}" class="rounded-xl w-full max-w-md">
+    <div class="bg-[#FAF9F6] w-full rounded-xl shadow-md overflow-hidden">
+        <div class="flex items-center justify-between p-lg border-b border-outline-variant">
+            <h3 class="font-title-md text-title-md text-primary-container">Record Payment</h3>
+            <button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-1 rounded-full transition-colors" onclick="document.getElementById('payment-dialog-{{ enrollment.id }}').close()" type="button">close</button>
+        </div>
+        <form method="post" action="/admin/enrollments/{{ enrollment.id }}/record-payment">
+            <div class="p-lg space-y-lg">
+                <div class="space-y-2">
+                    <label class="font-label-md text-label-md text-on-surface-variant">Payment Amount</label>
+                    <div class="relative">
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 font-label-md text-on-surface-variant">$</span>
+                        <input class="w-full pl-8 pr-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-secondary text-body-md font-body-md outline-none" min="0.01" name="amount" placeholder="0.00" required step="0.01" type="number">
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <label class="font-label-md text-label-md text-on-surface-variant">Payment Date</label>
+                    <input class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-secondary text-body-md font-body-md outline-none" name="paid_at" required type="date" value="{{ today_iso }}">
+                </div>
+                <div class="space-y-2">
+                    <label class="font-label-md text-label-md text-on-surface-variant">Method</label>
+                    <select class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-secondary text-body-md font-body-md outline-none" name="method">
+                        <option value="cash">Cash</option>
+                        <option value="card">Card</option>
+                        <option value="bank_transfer">Bank Transfer</option>
+                    </select>
+                </div>
+                <div class="space-y-2">
+                    <label class="font-label-md text-label-md text-on-surface-variant">Note</label>
+                    <textarea class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-secondary text-body-md font-body-md outline-none min-h-[100px]" name="notes" placeholder="Add additional details..."></textarea>
+                </div>
+            </div>
+            <div class="p-lg bg-surface-container-lowest flex items-center justify-end gap-3">
+                <button class="px-6 py-2.5 rounded-xl font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low transition-all" onclick="document.getElementById('payment-dialog-{{ enrollment.id }}').close()" type="button">Cancel</button>
+                <button class="px-6 py-2.5 rounded-xl font-label-md text-label-md bg-[#0B2545] text-white shadow-sm hover:opacity-90 transition-all" type="submit">Save Payment</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+{% endfor %}
+{% endblock %}

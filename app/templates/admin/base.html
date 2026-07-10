@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Admin — Sunset Swimming Pool{% endblock %}</title>
+{% include "_tailwind_head.html" %}
+{% block head %}{% endblock %}
+</head>
+<body class="bg-background text-on-background min-h-screen flex">
+    <!-- Desktop Sidebar Navigation -->
+    <aside class="hidden md:flex flex-col fixed left-0 top-0 h-screen w-64 bg-primary-container text-white z-50">
+        <div class="p-lg flex items-center gap-3 h-16 border-b border-white/5">
+            <span class="material-symbols-outlined text-secondary-fixed text-3xl">waves</span>
+            <h1 class="font-title-md text-title-md leading-tight text-white">Sunset Pool</h1>
+        </div>
+        <nav class="flex-grow mt-md px-md space-y-1">
+            {% set nav_items = [
+                ("dashboard", "Dashboard", "dashboard", "/admin/dashboard"),
+                ("reservations", "Reservations", "event_note", "/admin/reservations"),
+                ("cycles", "Cycles", "cycle", "/admin/cycles"),
+                ("participants", "Participants", "group", "/admin/participants"),
+                ("enrollments", "Enrollments", "assignment", "/admin/enrollments"),
+                ("settings", "Settings", "settings", "/admin/settings"),
+            ] %}
+            {% for key, label, icon, href in nav_items %}
+            <a class="flex items-center gap-md px-md py-3 rounded-lg transition-all {{ 'sidebar-active' if active_nav == key else 'text-on-primary-container hover:bg-white/5' }}" href="{{ href }}">
+                <span class="material-symbols-outlined {{ 'text-secondary-fixed' if active_nav == key else 'opacity-70' }}">{{ icon }}</span>
+                <span class="font-label-md text-label-md">{{ label }}</span>
+            </a>
+            {% endfor %}
+        </nav>
+        <div class="p-md border-t border-white/10">
+            <div class="flex items-center gap-3 px-md py-4 bg-white/5 rounded-xl">
+                <div class="w-10 h-10 rounded-full border border-secondary-fixed overflow-hidden flex-shrink-0 flex items-center justify-center bg-primary/40">
+                    <span class="material-symbols-outlined text-secondary-fixed">person</span>
+                </div>
+                <div class="overflow-hidden flex-1">
+                    <p class="font-label-md text-label-md truncate">Admin</p>
+                    <p class="font-caption text-caption opacity-60 truncate">Sunset Swimming Pool</p>
+                </div>
+                <form action="/admin/logout" method="post">
+                    <button class="material-symbols-outlined text-on-primary-container hover:text-error transition-colors" title="Log out" type="submit">logout</button>
+                </form>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Top Navigation & Mobile Header -->
+    <div class="flex flex-col flex-grow md:ml-64">
+        <header class="fixed top-0 left-0 right-0 h-16 bg-surface-container-lowest border-b border-outline-variant z-40 flex items-center justify-between px-margin-mobile md:px-margin-desktop md:left-64">
+            <div class="flex items-center gap-4">
+                <div class="hidden md:flex items-center gap-2">
+                    <span class="font-label-md text-on-surface-variant">Admin Panel</span>
+                    <span class="material-symbols-outlined text-on-surface-variant text-sm">chevron_right</span>
+                    <span class="font-label-md text-primary font-bold">{% block header_title %}Dashboard{% endblock %}</span>
+                </div>
+                <div class="md:hidden flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-2xl">waves</span>
+                    <h1 class="font-title-md text-title-md text-primary">Sunset</h1>
+                </div>
+            </div>
+            <div class="hidden flex items-center gap-4">
+                <div class="hidden md:flex relative">
+                    <span class="absolute inset-y-0 left-3 flex items-center text-on-surface-variant">
+                        <span class="material-symbols-outlined text-xl">search</span>
+                    </span>
+                    <input class="pl-10 pr-4 py-1.5 bg-surface-container rounded-full border-none focus:ring-2 focus:ring-primary-container text-sm w-64" placeholder="Search data..." type="text" disabled>
+                </div>
+                <button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container p-2 rounded-full transition-colors" disabled>notifications</button>
+            </div>
+        </header>
+
+        <main class="pt-24 pb-16 px-margin-mobile md:px-margin-desktop w-full max-w-7xl mx-auto">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Bottom Navigation for Mobile -->
+    <nav class="md:hidden fixed bottom-0 w-full z-50 flex justify-around items-center px-margin-mobile pb-safe pt-xs bg-surface-container-lowest rounded-t-xl shadow-[0px_-4px_12px_rgba(0,0,0,0.05)] border-t border-outline-variant">
+        <a class="flex flex-col items-center justify-center bg-primary text-on-primary rounded-xl px-4 py-1 active:scale-90 duration-150" href="/admin/dashboard">
+            <span class="material-symbols-outlined">dashboard</span>
+            <span class="font-label-md text-label-md">Home</span>
+        </a>
+    </nav>
+</body>
+</html>

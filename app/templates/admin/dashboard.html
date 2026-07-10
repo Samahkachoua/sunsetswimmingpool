@@ -1,0 +1,101 @@
+{% extends "admin/base.html" %}
+
+{% set active_nav = "dashboard" %}
+{% block title %}Dashboard — Sunset Swimming Pool Admin{% endblock %}
+{% block header_title %}Dashboard Overview{% endblock %}
+
+{% block content %}
+<!-- Greeting Section -->
+<section class="mb-lg flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div>
+        <h2 class="font-headline-lg text-headline-lg text-primary">Hello, Admin</h2>
+        <p class="font-body-md text-body-md text-on-surface-variant">{{ today }}</p>
+    </div>
+</section>
+
+<!-- Stats Grid -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-gutter mb-xl">
+    <div class="bg-surface-container-lowest p-lg rounded-2xl border border-outline-variant shadow-sm flex flex-col items-start">
+        <div class="flex items-center justify-between w-full mb-md">
+            <span class="material-symbols-outlined p-2 bg-secondary-container/10 text-secondary rounded-lg">assignment_turned_in</span>
+        </div>
+        <p class="font-label-md text-on-surface-variant">Total Enrollments</p>
+        <h3 class="font-headline-lg text-headline-lg text-primary mt-1">{{ total_enrollments }}</h3>
+    </div>
+
+    <div class="bg-surface-container-lowest p-lg rounded-2xl border border-outline-variant shadow-sm flex flex-col items-start">
+        <div class="flex items-center justify-between w-full mb-md">
+            <span class="material-symbols-outlined p-2 bg-tertiary-fixed/20 text-on-tertiary-fixed-variant rounded-lg">pending_actions</span>
+        </div>
+        <p class="font-label-md text-on-surface-variant">Pending Enrollments</p>
+        <h3 class="font-headline-lg text-headline-lg text-primary mt-1">{{ pending_enrollments }}</h3>
+    </div>
+
+    <div class="bg-surface-container-lowest p-lg rounded-2xl border border-outline-variant shadow-sm flex flex-col items-start">
+        <div class="flex items-center justify-between w-full mb-md">
+            <span class="material-symbols-outlined p-2 bg-primary-container/5 text-primary-container rounded-lg">calendar_today</span>
+        </div>
+        <p class="font-label-md text-on-surface-variant">Total Reservations</p>
+        <h3 class="font-headline-lg text-headline-lg text-primary mt-1">{{ total_reservations }}</h3>
+    </div>
+
+    <div class="bg-surface-container-lowest p-lg rounded-2xl border border-outline-variant shadow-sm flex flex-col items-start">
+        <div class="flex items-center justify-between w-full mb-md">
+            <span class="material-symbols-outlined p-2 bg-surface-container text-primary rounded-lg">school</span>
+        </div>
+        <p class="font-label-md text-on-surface-variant">Beginner Level</p>
+        <h3 class="font-headline-lg text-headline-lg text-primary mt-1">{{ level_counts.beginner }}</h3>
+    </div>
+
+    <div class="bg-surface-container-lowest p-lg rounded-2xl border border-outline-variant shadow-sm flex flex-col items-start">
+        <div class="flex items-center justify-between w-full mb-md">
+            <span class="material-symbols-outlined p-2 bg-surface-container text-primary rounded-lg">trending_up</span>
+        </div>
+        <p class="font-label-md text-on-surface-variant">Intermediate Level</p>
+        <h3 class="font-headline-lg text-headline-lg text-primary mt-1">{{ level_counts.intermediate }}</h3>
+    </div>
+
+    <div class="bg-surface-container-lowest p-lg rounded-2xl border border-outline-variant shadow-sm flex flex-col items-start">
+        <div class="flex items-center justify-between w-full mb-md">
+            <span class="material-symbols-outlined p-2 bg-surface-container text-primary rounded-lg">workspace_premium</span>
+        </div>
+        <p class="font-label-md text-on-surface-variant">Advanced Level</p>
+        <h3 class="font-headline-lg text-headline-lg text-primary mt-1">{{ level_counts.advanced }}</h3>
+    </div>
+</section>
+
+<!-- Recent Enrollments Table -->
+<div class="bg-surface-container-lowest p-lg rounded-2xl border border-outline-variant shadow-sm">
+    <div class="flex items-center justify-between mb-lg">
+        <h4 class="font-title-md text-title-md text-primary">Recent Enrollments</h4>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left">
+            <thead>
+                <tr class="border-b border-outline-variant text-on-surface-variant">
+                    <th class="pb-3 font-label-md">Participant</th>
+                    <th class="pb-3 font-label-md">Level</th>
+                    <th class="pb-3 font-label-md">Status</th>
+                    <th class="pb-3 font-label-md">Date</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-outline-variant/50">
+                {% for enrollment in recent_enrollments %}
+                <tr>
+                    <td class="py-4 font-body-md">{{ enrollment.participants.full_name if enrollment.participants else "—" }}</td>
+                    <td class="py-4 font-body-md text-on-surface-variant">{{ enrollment.level | capitalize }}</td>
+                    <td class="py-4">
+                        <span class="px-2 py-1 rounded text-xs font-bold uppercase tracking-wider {{ status_classes.get(enrollment.status, 'bg-surface-container text-on-surface-variant') }}">{{ enrollment.status | capitalize }}</span>
+                    </td>
+                    <td class="py-4 font-body-md text-on-surface-variant">{{ enrollment.created_at_display }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="py-6 text-center font-body-md text-on-surface-variant">No enrollments yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

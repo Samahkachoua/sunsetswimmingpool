@@ -1,0 +1,121 @@
+{% extends "admin/base.html" %}
+
+{% set active_nav = "reservations" %}
+{% block title %}Reservations — Sunset Swimming Pool Admin{% endblock %}
+{% block header_title %}Reservations{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="mb-lg px-lg py-3 rounded-xl bg-error-container text-on-error-container font-body-md">{{ error }}</div>
+{% endif %}
+
+{% if not pools %}
+<div class="bg-white rounded-xl border border-outline-variant p-xl text-center space-y-md">
+    <h2 class="font-headline-lg text-headline-lg text-primary">No pools configured yet</h2>
+    <p class="font-body-md text-on-surface-variant">Add a pool in Settings before creating reservations.</p>
+    <a class="inline-flex items-center gap-2 px-lg py-2.5 bg-primary-container text-white rounded-xl font-label-md text-label-md hover:opacity-90 transition-all" href="/admin/settings">Go to Settings</a>
+</div>
+{% else %}
+<div class="flex items-center justify-between mb-lg gap-4 flex-wrap">
+    <div class="flex items-center gap-md">
+        <a class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-all border border-outline-variant" href="/admin/reservations?date={{ prev_date }}">
+            <span class="material-symbols-outlined">chevron_left</span>
+        </a>
+        <div class="text-center">
+            <h2 class="font-title-md text-title-md text-primary">{{ display_date }}</h2>
+            <p class="font-caption text-caption text-outline uppercase tracking-wider">{{ weekday_name }}</p>
+        </div>
+        <a class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-all border border-outline-variant" href="/admin/reservations?date={{ next_date }}">
+            <span class="material-symbols-outlined">chevron_right</span>
+        </a>
+    </div>
+    <button class="flex items-center gap-2 bg-primary-container text-on-primary px-lg py-2.5 rounded-xl font-label-md text-label-md shadow-lg hover:opacity-90 transition-all" onclick="document.getElementById('new-reservation-dialog').showModal()" type="button">
+        <span class="material-symbols-outlined">add</span>
+        New Booking
+    </button>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-{{ pools|length if pools|length <= 3 else 3 }} gap-lg">
+    {% for pool in pools %}
+    <div class="bg-surface-container rounded-xl border border-outline-variant/30 overflow-hidden">
+        <div class="flex items-center justify-center gap-2 py-3 bg-surface-container-low border-b border-outline-variant/30 font-title-md text-title-md text-primary-container">
+            <span class="material-symbols-outlined">pool</span> {{ pool.name }}
+        </div>
+        <div class="p-md space-y-md min-h-[120px]">
+            {% for reservation in reservations_by_pool.get(pool.id, []) %}
+            <div class="bg-white rounded-xl border-l-4 shadow-sm p-md {{ 'border-secondary' if reservation.status == 'confirmed' else ('border-error' if reservation.status == 'cancelled' else 'border-tertiary-fixed-dim') }}">
+                <div class="flex justify-between items-start">
+                    <h3 class="font-title-md text-body-md font-bold text-primary">{{ reservation.customer_name }}</h3>
+                    <span class="px-sm rounded-full font-caption text-[10px] uppercase {{ status_classes.get(reservation.status, 'bg-surface-container text-on-surface-variant') }}">{{ reservation.status }}</span>
+                </div>
+                <p class="font-caption text-caption text-outline">{{ reservation.time_range }}</p>
+                <div class="flex justify-between items-end mt-2">
+                    <span class="font-label-md text-label-md text-primary">${{ "%.2f"|format(reservation.price_snapshot) }}</span>
+                    <span class="font-caption text-caption text-outline">{{ reservation.customer_phone }}</span>
+                </div>
+            </div>
+            {% else %}
+            <p class="font-body-md text-on-surface-variant text-center py-lg">No bookings.</p>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<dialog id="new-reservation-dialog" class="rounded-xl w-full max-w-md">
+    <div class="bg-surface-container-lowest w-full rounded-xl shadow-2xl overflow-hidden border border-outline-variant">
+        <div class="p-lg flex justify-between items-center border-b border-outline-variant">
+            <h3 class="font-title-md text-title-md text-primary-container">New Reservation</h3>
+            <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" onclick="document.getElementById('new-reservation-dialog').close()" type="button">close</button>
+        </div>
+        <form method="post" action="/admin/reservations" class="p-lg space-y-md">
+            <div class="space-y-1">
+                <label class="font-label-md text-label-md text-on-surface-variant">Facility</label>
+                <select class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary-container outline-none font-body-md" name="pool_id" required>
+                    {% for pool in pools %}
+                    <option value="{{ pool.id }}">{{ pool.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="space-y-1">
+                <label class="font-label-md text-label-md text-on-surface-variant">Customer Name</label>
+                <input class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary-container outline-none font-body-md" name="customer_name" placeholder="e.g. Elias Mansour" required type="text">
+            </div>
+            <div class="space-y-1">
+                <label class="font-label-md text-label-md text-on-surface-variant">Phone Number</label>
+                <div class="relative flex items-center">
+                    <span class="absolute left-4 font-body-md text-on-surface-variant border-r pr-2 border-outline-variant">+961</span>
+                    <input class="w-full h-14 pl-20 pr-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary-container outline-none font-body-md" name="customer_phone" placeholder="70 000 000" required type="tel">
+                </div>
+            </div>
+            <div class="space-y-1">
+                <label class="font-label-md text-label-md text-on-surface-variant">Date</label>
+                <input class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary-container outline-none font-body-md" name="res_date" required type="date" value="{{ iso_date }}">
+            </div>
+            <div class="grid grid-cols-2 gap-md">
+                <div class="space-y-1">
+                    <label class="font-label-md text-label-md text-on-surface-variant">Start Time</label>
+                    <input class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary-container outline-none font-body-md" name="start_time" required type="time" value="09:00">
+                </div>
+                <div class="space-y-1">
+                    <label class="font-label-md text-label-md text-on-surface-variant">End Time</label>
+                    <input class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary-container outline-none font-body-md" name="end_time" required type="time" value="10:00">
+                </div>
+            </div>
+            <div class="space-y-1">
+                <label class="font-label-md text-label-md text-on-surface-variant">Status</label>
+                <select class="w-full h-14 px-4 bg-white border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary-container outline-none font-body-md" name="status">
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+            </div>
+            <p class="font-caption text-on-surface-variant">Price is calculated automatically from the pool's weekday/weekend rate.</p>
+            <div class="pt-2">
+                <button class="w-full h-14 bg-primary-container text-on-primary rounded-xl font-title-md text-title-md shadow-lg hover:opacity-90 transition-all" type="submit">Confirm booking</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+{% endif %}
+{% endblock %}

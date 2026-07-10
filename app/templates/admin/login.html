@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Login — Sunset Swimming Pool</title>
+{% include "_tailwind_head.html" %}
+</head>
+<body class="bg-background text-on-surface min-h-screen flex items-center justify-center px-margin-mobile">
+    <div class="w-full max-w-sm">
+        <div class="flex flex-col items-center gap-3 mb-lg">
+            <div class="bg-secondary-container p-3 rounded-xl shadow-sm">
+                <span class="material-symbols-outlined text-on-secondary-container text-3xl">pool</span>
+            </div>
+            <h1 class="font-headline-lg text-headline-lg text-primary-container">Admin Login</h1>
+            <p class="font-body-md text-on-surface-variant">Sunset Swimming Pool</p>
+        </div>
+
+        <div class="bg-surface-container-lowest rounded-2xl shadow-[0px_4px_20px_rgba(11,37,69,0.08)] border border-surface-variant p-lg">
+            {% if error %}
+            <div class="mb-md px-md py-3 rounded-xl bg-error-container text-on-error-container font-body-md text-center">{{ error }}</div>
+            {% endif %}
+            <form method="post" action="/admin/login" class="space-y-md">
+                <input type="hidden" name="next" value="{{ next }}">
+                <div class="space-y-xs">
+                    <label class="font-label-md text-label-md text-on-surface-variant">Email</label>
+                    <input class="w-full min-h-[56px] px-md rounded-xl border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary bg-surface-bright transition-all outline-none" name="email" placeholder="you@example.com" required type="email" autofocus>
+                </div>
+                <div class="space-y-xs">
+                    <label class="font-label-md text-label-md text-on-surface-variant">Password</label>
+                    <input class="w-full min-h-[56px] px-md rounded-xl border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary bg-surface-bright transition-all outline-none" name="password" required type="password">
+                </div>
+                <button class="w-full bg-primary-container text-on-primary py-md rounded-xl font-title-md text-title-md active:scale-[0.98] transition-transform duration-150 shadow-lg mt-lg" type="submit">
+                    Sign In
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

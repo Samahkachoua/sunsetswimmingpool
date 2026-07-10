@@ -1,0 +1,38 @@
+.glass-header {
+  backdrop-filter: blur(8px);
+  background-color: rgba(250, 249, 246, 0.85);
+}
+
+.aquatic-gradient {
+  background-image: linear-gradient(180deg, rgba(46, 196, 182, 0.08), rgba(250, 249, 246, 0));
+}
+
+.aqua-border {
+  border-color: #2ec4b6 !important;
+}
+
+@keyframes success-bounce-in {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.success-bounce {
+  animation: success-bounce-in 0.5s ease-out;
+}
+
+.sidebar-active {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+dialog {
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+dialog::backdrop {
+  backdrop-filter: blur(8px);
+  background-color: rgba(11, 37, 69, 0.4);
+}

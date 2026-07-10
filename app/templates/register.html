@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Register — Sunset Swimming Pool{% endblock %}
+
+{% block content %}
+<main class="px-margin-mobile md:px-margin-desktop max-w-4xl mx-auto space-y-xl py-xl mt-xl">
+    <section class="bg-surface-container-lowest rounded-xl p-lg shadow-[0px_4px_24px_rgba(0,106,98,0.06)] space-y-lg border border-surface-variant">
+        <div class="space-y-1">
+            <h1 class="font-headline-lg text-primary-container">Registration Form</h1>
+            <p class="font-body-md text-on-surface-variant">Join our next swimming cycle. Secure your spot now.</p>
+        </div>
+
+        {% if not open_cycles %}
+        <p class="font-body-md text-on-surface-variant">Registration is currently closed. Please check back soon.</p>
+        {% else %}
+        <form class="space-y-md md:grid md:grid-cols-2 md:gap-lg md:space-y-0" method="post" action="/register">
+            <!-- Participant Name -->
+            <div class="space-y-xs">
+                <label class="font-label-md text-label-md text-on-surface-variant">Participant Full Name</label>
+                <input class="w-full min-h-[56px] px-md rounded-xl border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary bg-surface-bright transition-all outline-none" name="full_name" placeholder="Enter full name" type="text" required>
+            </div>
+            <!-- Mother Name -->
+            <div class="space-y-xs">
+                <label class="font-label-md text-label-md text-on-surface-variant">Mother Name</label>
+                <input class="w-full min-h-[56px] px-md rounded-xl border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary bg-surface-bright transition-all outline-none" name="mother_name" placeholder="Enter mother's name" type="text" required>
+            </div>
+            <!-- Phone Number -->
+            <div class="space-y-xs">
+                <label class="font-label-md text-label-md text-on-surface-variant">Phone Number</label>
+                <div class="relative">
+                    <span class="absolute left-md top-1/2 -translate-y-1/2 font-body-md text-on-surface-variant">+961</span>
+                    <input class="w-full min-h-[56px] pl-16 pr-md rounded-xl border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary bg-surface-bright transition-all outline-none" name="phone" placeholder="00 000 000" type="tel" required>
+                </div>
+            </div>
+            <!-- Date of Birth -->
+            <div class="space-y-xs">
+                <label class="font-label-md text-label-md text-on-surface-variant">Date of Birth</label>
+                <input class="w-full min-h-[56px] px-md rounded-xl border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary bg-surface-bright transition-all outline-none" name="date_of_birth" type="date" required>
+            </div>
+            <!-- Time Preferred (Segmented Control) -->
+            <div class="space-y-xs">
+                <label class="font-label-md text-label-md text-on-surface-variant">Time Preferred</label>
+                <div class="grid grid-cols-2 bg-surface-container-high p-1 rounded-xl relative h-[56px]">
+                    <button class="time-btn relative z-10 font-label-md text-label-md text-white bg-primary-container rounded-lg transition-all duration-300" onclick="selectTime('morning', this)" type="button">Morning</button>
+                    <button class="time-btn relative z-10 font-label-md text-label-md rounded-lg text-on-surface-variant transition-all duration-300" onclick="selectTime('afternoon', this)" type="button">Afternoon</button>
+                </div>
+            </div>
+            <!-- Level Selection -->
+            <div class="space-y-xs md:col-span-2">
+                <label class="font-label-md text-label-md text-on-surface-variant">Level</label>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-sm">
+                    <div class="level-card border-2 aqua-border rounded-xl p-md bg-surface-bright cursor-pointer hover:shadow-md transition-all" data-level="beginner" onclick="selectLevel(this)">
+                        <h3 class="font-label-md text-label-md text-primary">Beginner</h3>
+                        <p class="font-caption text-caption text-on-surface-variant mt-1">Water confidence &amp; basic kicking.</p>
+                    </div>
+                    <div class="level-card border-2 border-transparent bg-surface-container p-md rounded-xl cursor-pointer hover:shadow-md transition-all" data-level="intermediate" onclick="selectLevel(this)">
+                        <h3 class="font-label-md text-label-md text-primary">Intermediate</h3>
+                        <p class="font-caption text-caption text-on-surface-variant mt-1">Stroke development &amp; breathing.</p>
+                    </div>
+                    <div class="level-card border-2 border-transparent bg-surface-container p-md rounded-xl cursor-pointer hover:shadow-md transition-all" data-level="advanced" onclick="selectLevel(this)">
+                        <h3 class="font-label-md text-label-md text-primary">Advanced</h3>
+                        <p class="font-caption text-caption text-on-surface-variant mt-1">Refining technique &amp; endurance.</p>
+                    </div>
+                </div>
+            </div>
+
+            {% if open_cycles|length == 1 %}
+            <input type="hidden" name="cycle_id" value="{{ open_cycles[0].id }}">
+            {% else %}
+            <div class="space-y-xs md:col-span-2">
+                <label class="font-label-md text-label-md text-on-surface-variant">Cycle</label>
+                <select class="w-full min-h-[56px] px-md rounded-xl border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary bg-surface-bright transition-all outline-none" name="cycle_id" required>
+                    {% for cycle in open_cycles %}
+                    <option value="{{ cycle.id }}">{{ cycle.name }} ({{ cycle.start_date }} – {{ cycle.end_date }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <input type="hidden" name="level" id="level" value="beginner">
+            <input type="hidden" name="time_preferred" id="time_preferred" value="morning">
+
+            <!-- Primary Action -->
+            <button class="w-full bg-primary-container text-on-primary py-md rounded-xl font-title-md text-title-md active:scale-[0.98] transition-transform duration-150 mt-lg shadow-lg md:col-span-2 md:mt-xl flex items-center justify-center gap-2" type="submit">
+                <span>Register Now</span>
+                <span class="material-symbols-outlined">arrow_forward</span>
+            </button>
+        </form>
+        {% endif %}
+    </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/register.js') }}"></script>
+{% endblock %}
