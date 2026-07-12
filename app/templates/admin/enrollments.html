@@ -16,18 +16,73 @@
     </div>
 </div>
 
+<div class="bg-white rounded-xl border border-surface-container-high shadow-[0px_4px_20px_rgba(11,37,69,0.08)] p-lg mb-lg">
+    <form method="post" action="/admin/enrollments/filters" class="flex flex-wrap items-end gap-4">
+        <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Min Age</label>
+            <input class="block w-20 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" min="0" name="age_min" type="number" value="{{ filters.age_min if filters.age_min is not none else '' }}">
+        </div>
+        <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Max Age</label>
+            <input class="block w-20 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" min="0" name="age_max" type="number" value="{{ filters.age_max if filters.age_max is not none else '' }}">
+        </div>
+        <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Level</label>
+            <select class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="level">
+                <option value="">All Levels</option>
+                <option value="beginner" {{ 'selected' if filters.level == 'beginner' }}>Beginner</option>
+                <option value="intermediate" {{ 'selected' if filters.level == 'intermediate' }}>Intermediate</option>
+                <option value="advanced" {{ 'selected' if filters.level == 'advanced' }}>Advanced</option>
+            </select>
+        </div>
+        <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Preferred Time</label>
+            <select class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="time_preferred">
+                <option value="">All Times</option>
+                <option value="morning" {{ 'selected' if filters.time_preferred == 'morning' }}>Morning</option>
+                <option value="afternoon" {{ 'selected' if filters.time_preferred == 'afternoon' }}>Afternoon</option>
+            </select>
+        </div>
+        <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Time Slot</label>
+            <select class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="time_slot_id">
+                <option value="">All Slots</option>
+                {% for slot in time_slots %}
+                <option value="{{ slot.id }}" {{ 'selected' if filters.time_slot_id == slot.id }}>{{ slot.start_time[:5] }}–{{ slot.end_time[:5] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Paid Status</label>
+            <select class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="paid_status">
+                <option value="">All</option>
+                <option value="unpaid" {{ 'selected' if filters.paid_status == 'unpaid' }}>Unpaid</option>
+                <option value="partial" {{ 'selected' if filters.paid_status == 'partial' }}>Partially Paid</option>
+                <option value="paid" {{ 'selected' if filters.paid_status == 'paid' }}>Paid</option>
+            </select>
+        </div>
+        <div class="flex items-center gap-2">
+            <button class="px-lg py-2 bg-primary-container text-white rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity" type="submit">Apply Filters</button>
+            {% if filters %}
+            <button class="px-lg py-2 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low transition-colors border border-outline-variant" formaction="/admin/enrollments/filters/clear" type="submit">Clear</button>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
 <div class="bg-white rounded-xl overflow-hidden border border-surface-container-high shadow-[0px_4px_20px_rgba(11,37,69,0.08)]">
     {% include "admin/_page_size_bar.html" %}
     <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse table-fixed">
             <thead>
                 <tr class="bg-surface-container-low border-b border-surface-container-high">
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[22%]">{{ m.sort_header(request, 'Name', 'full_name', sort_by, sort_dir) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[8%]">{{ m.sort_header(request, 'Age', 'date_of_birth', sort_by, sort_dir) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[14%]">{{ m.sort_header(request, 'Level', 'level', sort_by, sort_dir) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[16%]">{{ m.sort_header(request, 'Preferred Time', 'time_preferred', sort_by, sort_dir) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[12%]">{{ m.sort_header(request, 'Amount', 'price', sort_by, sort_dir) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[12%]">Paid</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[19%]">{{ m.sort_header(request, 'Name', 'full_name', sort_by, sort_dir) }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[6%]">{{ m.sort_header(request, 'Age', 'date_of_birth', sort_by, sort_dir) }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[12%]">{{ m.sort_header(request, 'Level', 'level', sort_by, sort_dir) }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[13%]">{{ m.sort_header(request, 'Preferred Time', 'time_preferred', sort_by, sort_dir) }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[12%]">{{ m.sort_header(request, 'Time Slot', 'start_time', sort_by, sort_dir) }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[11%]">{{ m.sort_header(request, 'Amount', 'price', sort_by, sort_dir) }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[11%]">Paid</th>
                     <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[16%]">Actions</th>
                 </tr>
             </thead>
@@ -42,6 +97,7 @@
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-bold uppercase tracking-tighter bg-surface-container text-primary">{{ enrollment.level | capitalize }}</span>
                     </td>
                     <td class="px-6 py-2 font-body-md text-body-md text-on-surface truncate text-start">{{ enrollment.time_preferred | capitalize }}</td>
+                    <td class="px-6 py-2 font-body-md text-body-md text-on-surface-variant truncate text-start">{{ enrollment.time_slots.start_time[:5] ~ '–' ~ enrollment.time_slots.end_time[:5] if enrollment.time_slots else '—' }}</td>
                     <td class="px-6 py-2 font-label-md text-label-md text-primary text-right">${{ "%.2f"|format(enrollment.price) }}</td>
                     <td class="px-6 py-2 font-label-md text-label-md text-right {{ 'text-secondary' if enrollment.paid > 0 else 'text-error' }}">${{ "%.2f"|format(enrollment.paid) }}</td>
                     <td class="px-6 py-2 text-right whitespace-nowrap">
@@ -60,7 +116,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td class="px-6 py-8 text-center font-body-md text-on-surface-variant" colspan="7">No enrollments yet.</td>
+                    <td class="px-6 py-8 text-center font-body-md text-on-surface-variant" colspan="8">No enrollments yet.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -84,14 +140,23 @@
                     <label class="font-label-md text-label-md text-on-surface-variant">Preferred Time</label>
                     <div class="flex gap-4">
                         <label class="flex items-center gap-2 cursor-pointer">
-                            <input class="text-secondary focus:ring-secondary" name="time_preferred" type="radio" value="morning" {{ 'checked' if enrollment.time_preferred == 'morning' }}>
+                            <input class="text-secondary focus:ring-secondary" name="time_preferred" onchange="filterTimeSlots(this)" type="radio" value="morning" {{ 'checked' if enrollment.time_preferred == 'morning' }}>
                             <span class="font-body-md text-body-md">Morning</span>
                         </label>
                         <label class="flex items-center gap-2 cursor-pointer">
-                            <input class="text-secondary focus:ring-secondary" name="time_preferred" type="radio" value="afternoon" {{ 'checked' if enrollment.time_preferred == 'afternoon' }}>
+                            <input class="text-secondary focus:ring-secondary" name="time_preferred" onchange="filterTimeSlots(this)" type="radio" value="afternoon" {{ 'checked' if enrollment.time_preferred == 'afternoon' }}>
                             <span class="font-body-md text-body-md">Afternoon</span>
                         </label>
                     </div>
+                </div>
+                <div class="space-y-2">
+                    <label class="font-label-md text-label-md text-on-surface-variant">Time Slot</label>
+                    <select class="w-full p-2.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="time_slot_id">
+                        <option value="">No specific slot</option>
+                        {% for slot in time_slots %}
+                        <option data-period="{{ slot.period }}" value="{{ slot.id }}" {{ 'hidden' if slot.period != ('morning' if enrollment.time_preferred == 'morning' else 'evening') else '' }} {{ 'selected' if enrollment.time_slot_id == slot.id }}>{{ slot.start_time[:5] }}–{{ slot.end_time[:5] }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
                 <div class="space-y-2">
                     <label class="font-label-md text-label-md text-on-surface-variant">Level</label>
@@ -164,4 +229,20 @@
     </div>
 </dialog>
 {% endfor %}
+
+<script>
+function filterTimeSlots(radio) {
+    const period = radio.value === 'morning' ? 'morning' : 'evening';
+    const select = radio.closest('form').querySelector('select[name="time_slot_id"]');
+    if (!select) return;
+    let selectedStillVisible = false;
+    Array.from(select.options).forEach((option) => {
+        if (!option.value) return;
+        const visible = option.dataset.period === period;
+        option.hidden = !visible;
+        if (visible && option.selected) selectedStillVisible = true;
+    });
+    if (!selectedStillVisible) select.value = '';
+}
+</script>
 {% endblock %}

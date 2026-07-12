@@ -18,18 +18,24 @@
 {% else %}
 <div class="flex items-center justify-between mb-lg gap-4 flex-wrap">
     <div class="flex items-center gap-md">
-        <a class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-all border border-outline-variant" href="/admin/reservations?date={{ prev_date }}">
+        <a class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-all border border-outline-variant shrink-0" href="/admin/reservations?date={{ prev_date }}">
             <span class="material-symbols-outlined">chevron_left</span>
         </a>
-        <div class="text-center">
-            <h2 class="font-title-md text-title-md text-primary">{{ display_date }}</h2>
-            <p class="font-caption text-caption text-outline uppercase tracking-wider">{{ weekday_name }}</p>
+        <div class="relative">
+            <button class="text-center px-3 py-1 rounded-lg hover:bg-surface-container-high transition-all" onclick="var el = document.getElementById('reservation-date-picker'); if (el.showPicker) { el.showPicker(); } else { el.focus(); }" type="button">
+                <h2 class="font-title-md text-title-md text-primary flex items-center justify-center gap-1">
+                    {{ display_date }}
+                    <span class="material-symbols-outlined text-[18px] text-outline">calendar_month</span>
+                </h2>
+                <p class="font-caption text-caption text-outline uppercase tracking-wider">{{ weekday_name }}</p>
+            </button>
+            <input aria-label="Jump to date" class="sr-only" id="reservation-date-picker" onchange="if (this.value) { window.location.href = '/admin/reservations?date=' + this.value; }" type="date" value="{{ iso_date }}">
         </div>
-        <a class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-all border border-outline-variant" href="/admin/reservations?date={{ next_date }}">
+        <a class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-all border border-outline-variant shrink-0" href="/admin/reservations?date={{ next_date }}">
             <span class="material-symbols-outlined">chevron_right</span>
         </a>
     </div>
-    <button class="flex items-center gap-2 bg-primary-container text-on-primary px-lg py-2.5 rounded-xl font-label-md text-label-md shadow-lg hover:opacity-90 transition-all" onclick="document.getElementById('new-reservation-dialog').showModal()" type="button">
+    <button class="flex items-center justify-center gap-2 bg-primary-container text-on-primary px-lg py-2.5 rounded-xl font-label-md text-label-md shadow-lg hover:opacity-90 transition-all w-full sm:w-auto" onclick="document.getElementById('new-reservation-dialog').showModal()" type="button">
         <span class="material-symbols-outlined">add</span>
         New Booking
     </button>

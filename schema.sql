@@ -43,18 +43,26 @@ CREATE TABLE public.participants (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT participants_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.time_slots (
+  id serial PRIMARY KEY,
+  start_time time NOT NULL UNIQUE,
+  end_time time NOT NULL,
+  period text NOT NULL CHECK (period IN ('morning', 'evening'))
+);
 CREATE TABLE public.enrollments (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   participant_id bigint NOT NULL,
   cycle_id bigint NOT NULL,
   level USER-DEFINED NOT NULL,
   time_preferred USER-DEFINED NOT NULL,
+  time_slot_id int,
   price numeric NOT NULL CHECK (price >= 0::numeric),
   status USER-DEFINED NOT NULL DEFAULT 'confirmed'::enrollment_status, -- enrollment_status enum: 'pending', 'confirmed'
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT enrollments_pkey PRIMARY KEY (id),
   CONSTRAINT enrollments_participant_id_fkey FOREIGN KEY (participant_id) REFERENCES public.participants(id),
-  CONSTRAINT enrollments_cycle_id_fkey FOREIGN KEY (cycle_id) REFERENCES public.cycles(id)
+  CONSTRAINT enrollments_cycle_id_fkey FOREIGN KEY (cycle_id) REFERENCES public.cycles(id),
+  CONSTRAINT enrollments_time_slot_id_fkey FOREIGN KEY (time_slot_id) REFERENCES public.time_slots(id)
 );
 CREATE TABLE public.reservations (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,

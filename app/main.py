@@ -1,3 +1,4 @@
+import json
 import math
 from datetime import date, datetime, timedelta
 from datetime import date as date_cls
@@ -99,6 +100,35 @@ def _fetch_page(build_query, page: int, page_size: int):
         result = run(page)
         total = result.count or 0
     return result.data, total, page, total_pages
+
+
+def _age_bounds_to_dob_range(age_min: int | None, age_max: int | None):
+    """Convert an inclusive age range into a (min_dob, max_dob) date_of_birth range."""
+    today = date.today()
+
+    def shift_years(d: date, years: int) -> date:
+        try:
+            return d.replace(year=d.year - years)
+        except ValueError:  # Feb 29 shifted onto a non-leap year
+            return d.replace(month=2, day=28, year=d.year - years)
+
+    max_dob = shift_years(today, age_min) if age_min is not None else None
+    min_dob = shift_years(today, age_max + 1) + timedelta(days=1) if age_max is not None else None
+    return min_dob, max_dob
+
+
+ENROLLMENTS_FILTER_COOKIE = "enrollments_filters"
+
+
+def _get_enrollment_filters(request: Request) -> dict:
+    raw = request.cookies.get(ENROLLMENTS_FILTER_COOKIE)
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else {}
+    except (ValueError, TypeError):
+        return {}
 
 
 templates.env.globals["url_with"] = _url_with
@@ -577,8 +607,14 @@ ENROLLMENTS_SORTABLE = {
     "date_of_birth": ("date_of_birth", "participants"),
     "level": ("level", None),
     "time_preferred": ("time_preferred", None),
+    "start_time": ("start_time", "time_slots"),
     "price": ("price", None),
     "created_at": ("created_at", None),
+}
+
+TIME_SLOT_PERIOD_BY_TIME_PREFERRED = {
+    "morning": "morning",
+    "afternoon": "evening",
 }
 
 
@@ -589,35 +625,92 @@ def admin_enrollments(request: Request):
     )
     column, foreign_table = ENROLLMENTS_SORTABLE[sort_by]
 
+    filters = _get_enrollment_filters(request)
+    min_dob, max_dob = _age_bounds_to_dob_range(filters.get("age_min"), filters.get("age_max"))
+    paid_status_filter = filters.get("paid_status")
+
+    select_cols = (
+        "id, level, time_preferred, price, status, time_slot_id,"
+        " participants!inner(full_name, date_of_birth), time_slots(start_time, end_time)"
+    )
+
+    def apply_filters(query):
+        if min_dob is not None:
+            query = query.gte("participants.date_of_birth", min_dob.isoformat())
+        if max_dob is not None:
+            query = query.lte("participants.date_of_birth", max_dob.isoformat())
+        if filters.get("level"):
+            query = query.eq("level", filters["level"])
+        if filters.get("time_preferred"):
+            query = query.eq("time_preferred", filters["time_preferred"])
+        if filters.get("time_slot_id"):
+            query = query.eq("time_slot_id", filters["time_slot_id"])
+        return query
+
     def build_query(start, end):
+        query = apply_filters(supabase.table("enrollments").select(select_cols, count="exact"))
         return (
-            supabase.table("enrollments")
-            .select(
-                "id, level, time_preferred, price, status, participants(full_name, date_of_birth)",
-                count="exact",
-            )
-            .order(column, desc=(sort_dir == "desc"), foreign_table=foreign_table)
+            query.order(column, desc=(sort_dir == "desc"), foreign_table=foreign_table)
             .range(start, end)
             .execute()
         )
 
-    enrollments, total, page, total_pages = _fetch_page(build_query, page, page_size)
-
-    enrollment_ids = [enrollment["id"] for enrollment in enrollments]
-    paid_by_enrollment = {}
-    if enrollment_ids:
-        payments = (
-            supabase.table("payments")
-            .select("payable_id, amount")
-            .eq("payable_type", "enrollment")
-            .in_("payable_id", enrollment_ids)
-            .execute()
-            .data
-        )
-        for payment in payments:
-            paid_by_enrollment[payment["payable_id"]] = (
-                paid_by_enrollment.get(payment["payable_id"], 0) + payment["amount"]
+    if not paid_status_filter:
+        enrollments, total, page, total_pages = _fetch_page(build_query, page, page_size)
+        enrollment_ids = [enrollment["id"] for enrollment in enrollments]
+        paid_by_enrollment = {}
+        if enrollment_ids:
+            payments = (
+                supabase.table("payments")
+                .select("payable_id, amount")
+                .eq("payable_type", "enrollment")
+                .in_("payable_id", enrollment_ids)
+                .execute()
+                .data
             )
+            for payment in payments:
+                paid_by_enrollment[payment["payable_id"]] = (
+                    paid_by_enrollment.get(payment["payable_id"], 0) + payment["amount"]
+                )
+    else:
+        # Paid status is derived from the payments table, not a real column, so it
+        # can't be pushed into the enrollments query. Fetch everything matching the
+        # other filters, compute paid status in Python, then paginate the result.
+        query = apply_filters(supabase.table("enrollments").select(select_cols))
+        all_matching = (
+            query.order(column, desc=(sort_dir == "desc"), foreign_table=foreign_table).execute().data
+        )
+        all_ids = [enrollment["id"] for enrollment in all_matching]
+        paid_lookup = {}
+        if all_ids:
+            payments = (
+                supabase.table("payments")
+                .select("payable_id, amount")
+                .eq("payable_type", "enrollment")
+                .in_("payable_id", all_ids)
+                .execute()
+                .data
+            )
+            for payment in payments:
+                paid_lookup[payment["payable_id"]] = paid_lookup.get(payment["payable_id"], 0) + payment["amount"]
+
+        def paid_status_of(enrollment) -> str:
+            paid = paid_lookup.get(enrollment["id"], 0)
+            if paid <= 0:
+                return "unpaid"
+            if paid < enrollment["price"]:
+                return "partial"
+            return "paid"
+
+        filtered = [enrollment for enrollment in all_matching if paid_status_of(enrollment) == paid_status_filter]
+        total = len(filtered)
+        total_pages = max(1, math.ceil(total / page_size)) if total else 1
+        page = min(max(page, 1), total_pages)
+        start = (page - 1) * page_size
+        enrollments = filtered[start : start + page_size]
+        paid_by_enrollment = paid_lookup
+
+    time_slots = supabase.table("time_slots").select("id, start_time, end_time, period").order("start_time").execute().data
 
     for enrollment in enrollments:
         enrollment["age"] = calculate_age(enrollment["participants"]["date_of_birth"])
@@ -629,6 +722,7 @@ def admin_enrollments(request: Request):
         "admin/enrollments.html",
         {
             "enrollments": enrollments,
+            "time_slots": time_slots,
             "status_classes": STATUS_BADGE_CLASSES,
             "today_iso": date.today().isoformat(),
             "error": request.query_params.get("error"),
@@ -638,8 +732,50 @@ def admin_enrollments(request: Request):
             "total_pages": total_pages,
             "sort_by": sort_by,
             "sort_dir": sort_dir,
+            "filters": filters,
         },
     )
+
+
+@admin_router.post("/admin/enrollments/filters")
+def admin_enrollments_set_filters(
+    age_min: str = Form(""),
+    age_max: str = Form(""),
+    level: str = Form(""),
+    time_preferred: str = Form(""),
+    time_slot_id: str = Form(""),
+    paid_status: str = Form(""),
+):
+    filters = {}
+    try:
+        if age_min.strip():
+            filters["age_min"] = int(age_min)
+        if age_max.strip():
+            filters["age_max"] = int(age_max)
+        if time_slot_id.strip():
+            filters["time_slot_id"] = int(time_slot_id)
+    except ValueError:
+        pass
+    if level:
+        filters["level"] = level
+    if time_preferred:
+        filters["time_preferred"] = time_preferred
+    if paid_status:
+        filters["paid_status"] = paid_status
+
+    response = RedirectResponse(url="/admin/enrollments", status_code=303)
+    if filters:
+        response.set_cookie(ENROLLMENTS_FILTER_COOKIE, json.dumps(filters), httponly=True, samesite="lax")
+    else:
+        response.delete_cookie(ENROLLMENTS_FILTER_COOKIE)
+    return response
+
+
+@admin_router.post("/admin/enrollments/filters/clear")
+def admin_enrollments_clear_filters():
+    response = RedirectResponse(url="/admin/enrollments", status_code=303)
+    response.delete_cookie(ENROLLMENTS_FILTER_COOKIE)
+    return response
 
 
 @admin_router.post("/admin/enrollments/{enrollment_id}/edit")
@@ -649,6 +785,7 @@ def admin_enrollments_edit(
     level: str = Form(...),
     status: str = Form(...),
     price: float = Form(...),
+    time_slot_id: str = Form(""),
 ):
     try:
         supabase.table("enrollments").update({
@@ -656,6 +793,7 @@ def admin_enrollments_edit(
             "level": level,
             "status": status,
             "price": price,
+            "time_slot_id": int(time_slot_id) if time_slot_id else None,
         }).eq("id", enrollment_id).execute()
     except APIError:
         return RedirectResponse(
