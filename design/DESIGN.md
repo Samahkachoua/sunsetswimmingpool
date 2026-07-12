@@ -108,10 +108,10 @@ spacing:
   sm: 8px
   md: 16px
   lg: 24px
-  xl: 40px
+  xl: 30px
   gutter: 20px
   margin-mobile: 16px
-  margin-desktop: 64px
+  margin-desktop: 30px
 ---
 
 ## Source

@@ -24,10 +24,15 @@ CREATE TABLE public.cycles (
   name text NOT NULL,
   start_date date NOT NULL,
   end_date date NOT NULL,
+  cycle_price numeric NOT NULL CHECK (cycle_price > 0::numeric),
   is_open_for_registration boolean NOT NULL DEFAULT false,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT cycles_pkey PRIMARY KEY (id)
 );
+-- Only one cycle may be open for registration at a time.
+CREATE UNIQUE INDEX cycles_single_open_for_registration
+  ON public.cycles ((is_open_for_registration))
+  WHERE is_open_for_registration;
 CREATE TABLE public.participants (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   full_name text NOT NULL,
@@ -45,7 +50,7 @@ CREATE TABLE public.enrollments (
   level USER-DEFINED NOT NULL,
   time_preferred USER-DEFINED NOT NULL,
   price numeric NOT NULL CHECK (price >= 0::numeric),
-  status USER-DEFINED NOT NULL DEFAULT 'pending'::enrollment_status,
+  status USER-DEFINED NOT NULL DEFAULT 'confirmed'::enrollment_status, -- enrollment_status enum: 'pending', 'confirmed'
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT enrollments_pkey PRIMARY KEY (id),
   CONSTRAINT enrollments_participant_id_fkey FOREIGN KEY (participant_id) REFERENCES public.participants(id),

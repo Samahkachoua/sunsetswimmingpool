@@ -1,0 +1,15 @@
+<div class="flex items-center justify-between gap-3 px-lg py-3 border-t border-outline-variant bg-surface-container-lowest flex-wrap">
+    <p class="font-caption text-caption text-on-surface-variant">Page {{ page }} of {{ total_pages }}</p>
+    <div class="flex items-center gap-2">
+        {% if page > 1 %}
+        <a class="px-3 py-1.5 rounded-lg border border-outline-variant font-label-md text-label-md hover:bg-surface-container-low transition-colors" href="{{ url_with(request, page=page-1) }}">Previous</a>
+        {% else %}
+        <span class="px-3 py-1.5 rounded-lg border border-outline-variant font-label-md text-label-md text-on-surface-variant opacity-40">Previous</span>
+        {% endif %}
+        {% if page < total_pages %}
+        <a class="px-3 py-1.5 rounded-lg border border-outline-variant font-label-md text-label-md hover:bg-surface-container-low transition-colors" href="{{ url_with(request, page=page+1) }}">Next</a>
+        {% else %}
+        <span class="px-3 py-1.5 rounded-lg border border-outline-variant font-label-md text-label-md text-on-surface-variant opacity-40">Next</span>
+        {% endif %}
+    </div>
+</div>

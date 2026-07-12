@@ -1,4 +1,5 @@
 {% extends "admin/base.html" %}
+{% import "admin/_macros.html" as m %}
 
 {% set active_nav = "cycles" %}
 {% block title %}Cycles — Sunset Swimming Pool Admin{% endblock %}
@@ -21,19 +22,22 @@
     </div>
 
     <div class="bg-white rounded-xl shadow-[0px_4px_20px_rgba(11,37,69,0.08)] overflow-hidden flex flex-col border border-outline-variant">
-        <div class="grid grid-cols-[1.5fr_1fr_1fr_1fr_140px] px-lg py-4 border-b border-outline-variant bg-surface-container-low text-label-md font-bold text-on-surface-variant uppercase tracking-wider">
-            <div>Name</div>
-            <div>Date From</div>
-            <div>Date To</div>
-            <div>Registration</div>
+        {% include "admin/_page_size_bar.html" %}
+        <div class="grid grid-cols-[1.5fr_1fr_1fr_0.8fr_1fr_140px] px-lg py-2.5 border-b border-outline-variant bg-surface-container-low text-label-md font-bold text-on-surface-variant uppercase tracking-wider">
+            <div>{{ m.sort_header(request, 'Name', 'name', sort_by, sort_dir) }}</div>
+            <div>{{ m.sort_header(request, 'Date From', 'start_date', sort_by, sort_dir) }}</div>
+            <div>{{ m.sort_header(request, 'Date To', 'end_date', sort_by, sort_dir) }}</div>
+            <div>{{ m.sort_header(request, 'Price', 'cycle_price', sort_by, sort_dir) }}</div>
+            <div>{{ m.sort_header(request, 'Registration', 'is_open_for_registration', sort_by, sort_dir) }}</div>
             <div class="text-right">Actions</div>
         </div>
         <div class="overflow-y-auto flex-1">
             {% for cycle in cycles %}
-            <div class="grid grid-cols-[1.5fr_1fr_1fr_1fr_140px] px-lg py-4 border-b border-outline-variant hover:bg-surface-container-low transition-colors items-center">
-                <p class="font-body-md text-body-md font-bold text-primary">{{ cycle.name }}</p>
-                <div class="font-body-md text-body-md text-on-surface-variant">{{ cycle.start_date }}</div>
-                <div class="font-body-md text-body-md text-on-surface-variant">{{ cycle.end_date }}</div>
+            <div class="grid grid-cols-[1.5fr_1fr_1fr_0.8fr_1fr_140px] px-lg py-2 border-b border-outline-variant hover:bg-surface-container-low transition-colors items-center {{ 'bg-surface-container-lowest' if loop.index0 % 2 == 1 else '' }}">
+                <p class="font-body-md text-body-md font-bold text-primary truncate text-start" title="{{ cycle.name }}">{{ cycle.name }}</p>
+                <div class="font-body-md text-body-md text-on-surface-variant text-start">{{ cycle.start_date | short_date }}</div>
+                <div class="font-body-md text-body-md text-on-surface-variant text-start">{{ cycle.end_date | short_date }}</div>
+                <div class="font-body-md text-body-md text-on-surface-variant text-start">{{ "$%.2f"|format(cycle.cycle_price) if cycle.cycle_price is not none else "—" }}</div>
                 <div>
                     {% if cycle.is_open_for_registration %}
                     <span class="px-2 py-1 rounded text-xs font-bold uppercase tracking-wider bg-secondary-container/20 text-on-secondary-container">Open</span>
@@ -58,6 +62,7 @@
             <div class="px-lg py-8 text-center font-body-md text-on-surface-variant">No cycles yet. Create one to get started.</div>
             {% endfor %}
         </div>
+        {% include "admin/_pager.html" %}
     </div>
 </section>
 
@@ -85,13 +90,23 @@
                     <input class="w-full min-h-[56px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="end_date" required type="date">
                 </div>
             </div>
-            <label class="flex items-center gap-2 font-body-md text-on-surface-variant">
-                <input class="rounded border-outline-variant text-primary-container focus:ring-primary-container" name="is_open_for_registration" type="checkbox" value="true">
-                Open for registration immediately
-            </label>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Cycle Price</label>
+                <div class="relative">
+                    <span class="absolute left-lg top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
+                    <input class="w-full min-h-[56px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="0.01" name="cycle_price" placeholder="0.00" required step="0.01" type="number">
+                </div>
+            </div>
+            <div class="space-y-1">
+                <label class="flex items-center gap-2 font-body-md text-on-surface-variant">
+                    <input class="rounded border-outline-variant text-primary-container focus:ring-primary-container" name="is_open_for_registration" type="checkbox" value="true">
+                    Open for registration immediately
+                </label>
+                <p class="text-xs text-on-surface-variant ml-1">Only one cycle can be open at a time — opening this one will automatically close any other open cycle.</p>
+            </div>
             <div class="flex flex-col gap-md pt-md">
                 <button class="w-full min-h-[56px] bg-primary-container text-white font-bold rounded-xl active:scale-95 transition-transform hover:opacity-90 flex items-center justify-center gap-2" type="submit">
-                    <span class="material-symbols-outlined">save</span>
+                    <span class="material-symbols-outlined">Save</span>
                     Save Cycle
                 </button>
                 <button class="w-full min-h-[48px] bg-transparent border border-secondary text-secondary font-semibold rounded-xl hover:bg-secondary-container transition-colors" onclick="document.getElementById('create-cycle-dialog').close()" type="button">

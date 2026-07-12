@@ -53,7 +53,64 @@
                     <span class="font-label-md text-label-md text-primary">${{ "%.2f"|format(reservation.price_snapshot) }}</span>
                     <span class="font-caption text-caption text-outline">{{ reservation.customer_phone }}</span>
                 </div>
+                <div class="flex justify-between items-center mt-2 pt-2 border-t border-outline-variant/30">
+                    <p class="font-caption text-caption {{ 'text-secondary' if reservation.paid > 0 else 'text-error' }}">
+                        Paid ${{ "%.2f"|format(reservation.paid) }}{{ " · Remaining $%.2f"|format(reservation.remaining) if reservation.remaining > 0 else "" }}
+                    </p>
+                    <div class="flex items-center">
+                        <button class="p-1.5 text-on-surface-variant hover:text-secondary transition-colors" onclick="document.getElementById('payment-dialog-{{ reservation.id }}').showModal()" title="Record payment" type="button">
+                            <span class="material-symbols-outlined text-[20px]">payments</span>
+                        </button>
+                        {% if reservation.status != 'cancelled' %}
+                        <form action="/admin/reservations/{{ reservation.id }}/cancel" method="post" onsubmit="return confirm('Cancel this reservation for {{ reservation.customer_name }}?');">
+                            <button class="p-1.5 text-on-surface-variant hover:text-error transition-colors" title="Cancel reservation" type="submit">
+                                <span class="material-symbols-outlined text-[20px]">event_busy</span>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
+
+            <dialog id="payment-dialog-{{ reservation.id }}" class="rounded-xl w-full max-w-md">
+                <div class="bg-[#FAF9F6] w-full rounded-xl shadow-md overflow-hidden">
+                    <div class="flex items-center justify-between p-lg border-b border-outline-variant">
+                        <h3 class="font-title-md text-title-md text-primary-container">Record Payment</h3>
+                        <button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-1 rounded-full transition-colors" onclick="document.getElementById('payment-dialog-{{ reservation.id }}').close()" type="button">close</button>
+                    </div>
+                    <form method="post" action="/admin/reservations/{{ reservation.id }}/record-payment">
+                        <div class="p-lg space-y-lg">
+                            <div class="space-y-2">
+                                <label class="font-label-md text-label-md text-on-surface-variant">Payment Amount</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 font-label-md text-on-surface-variant">$</span>
+                                    <input class="w-full pl-8 pr-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-secondary text-body-md font-body-md outline-none" max="{{ reservation.remaining }}" min="0.01" name="amount" placeholder="0.00" required step="0.01" type="number">
+                                </div>
+                                <p class="font-caption text-caption text-on-surface-variant">Remaining balance: ${{ "%.2f"|format(reservation.remaining) }}</p>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="font-label-md text-label-md text-on-surface-variant">Payment Date</label>
+                                <input class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-secondary text-body-md font-body-md outline-none" name="paid_at" required type="date" value="{{ today_iso }}">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="font-label-md text-label-md text-on-surface-variant">Method</label>
+                                <select class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-secondary text-body-md font-body-md outline-none" name="method">
+                                    <option value="cash">Cash</option>
+                                    <option value="whish">Whish</option>
+                                </select>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="font-label-md text-label-md text-on-surface-variant">Note</label>
+                                <textarea class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-secondary text-body-md font-body-md outline-none min-h-[100px]" name="notes" placeholder="Add additional details..."></textarea>
+                            </div>
+                        </div>
+                        <div class="p-lg bg-surface-container-lowest flex items-center justify-end gap-3">
+                            <button class="px-6 py-2.5 rounded-xl font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low transition-all" onclick="document.getElementById('payment-dialog-{{ reservation.id }}').close()" type="button">Cancel</button>
+                            <button class="px-6 py-2.5 rounded-xl font-label-md text-label-md bg-[#0B2545] text-white shadow-sm hover:opacity-90 transition-all" type="submit">Save Payment</button>
+                        </div>
+                    </form>
+                </div>
+            </dialog>
             {% else %}
             <p class="font-body-md text-on-surface-variant text-center py-lg">No bookings.</p>
             {% endfor %}

@@ -6,9 +6,13 @@
 <main class="px-margin-mobile md:px-margin-desktop max-w-4xl mx-auto space-y-xl py-xl mt-xl">
     <section class="bg-surface-container-lowest rounded-xl p-lg shadow-[0px_4px_24px_rgba(0,106,98,0.06)] space-y-lg border border-surface-variant">
         <div class="space-y-1">
-            <h1 class="font-headline-lg text-primary-container">Registration Form</h1>
+            <h1 class="font-headline-lg text-primary-container font-bold">Registration Form</h1>
             <p class="font-body-md text-on-surface-variant">Join our next swimming cycle. Secure your spot now.</p>
         </div>
+
+        {% if error %}
+        <div class="px-lg py-3 rounded-xl bg-error-container text-on-error-container font-body-md">{{ error }}</div>
+        {% endif %}
 
         {% if not open_cycles %}
         <p class="font-body-md text-on-surface-variant">Registration is currently closed. Please check back soon.</p>
