@@ -3,8 +3,33 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+    // Applied before paint so the sidebar doesn't flash expanded-then-collapsed (or vice versa).
+    if (localStorage.getItem('adminSidebarExpanded') === 'true') {
+        document.documentElement.classList.add('sidebar-expanded');
+    }
+</script>
 <title>{% block title %}Admin — Sunset Swimming Pool{% endblock %}</title>
 {% include "_tailwind_head.html" %}
+<style>
+    #admin-sidebar, #admin-content, #admin-header { transition: width 0.2s ease, margin-left 0.2s ease, left 0.2s ease; }
+    @media (min-width: 768px) {
+        #admin-sidebar { width: 5rem; }
+        #admin-content { margin-left: 5rem; }
+        #admin-header { left: 5rem; }
+        .sidebar-label { display: none; }
+        html:not(.sidebar-expanded) .sidebar-row { justify-content: center !important; }
+        .sidebar-collapse-icon-expanded { display: none; }
+    }
+    html.sidebar-expanded #admin-sidebar { width: 16rem; }
+    @media (min-width: 768px) {
+        html.sidebar-expanded #admin-content { margin-left: 16rem; }
+        html.sidebar-expanded #admin-header { left: 16rem; }
+        html.sidebar-expanded .sidebar-label { display: revert; }
+        html.sidebar-expanded .sidebar-collapse-icon-collapsed { display: none; }
+        html.sidebar-expanded .sidebar-collapse-icon-expanded { display: revert; }
+    }
+</style>
 {% block head %}{% endblock %}
 </head>
 <body class="bg-background text-on-background min-h-screen flex">
@@ -13,13 +38,17 @@
 
     <!-- Sidebar Navigation (slide-in drawer on mobile, static on desktop) -->
     <aside class="flex flex-col fixed left-0 top-0 h-screen w-64 bg-primary-container text-white z-50 transform -translate-x-full transition-transform duration-200 ease-in-out md:translate-x-0" id="admin-sidebar">
-        <div class="p-lg flex items-center justify-between gap-3 h-16 border-b border-white/5">
+        <div class="p-lg flex items-center justify-between gap-3 h-16 border-b border-white/5 sidebar-row">
             <div class="flex items-center gap-3">
                 <span class="material-symbols-outlined text-secondary-fixed text-3xl">waves</span>
-                <h1 class="font-title-md text-title-md leading-tight text-white">Sunset Pool</h1>
+                <h1 class="font-title-md text-title-md leading-tight text-white sidebar-label">Sunset Pool</h1>
             </div>
             <button class="md:hidden text-white" onclick="closeSidebar()" type="button">
                 <span class="material-symbols-outlined">close</span>
+            </button>
+            <button class="hidden md:flex text-white" onclick="toggleSidebarCollapse()" title="Toggle sidebar" type="button">
+                <span class="material-symbols-outlined sidebar-collapse-icon-collapsed">chevron_right</span>
+                <span class="material-symbols-outlined sidebar-collapse-icon-expanded">chevron_left</span>
             </button>
         </div>
         <nav class="flex-grow mt-md px-md space-y-1">
@@ -32,18 +61,18 @@
                 ("settings", "Settings", "settings", "/admin/settings"),
             ] %}
             {% for key, label, icon, href in nav_items %}
-            <a class="flex items-center gap-md px-md py-3 rounded-lg transition-all {{ 'sidebar-active' if active_nav == key else 'text-on-primary-container hover:bg-white/5' }}" href="{{ href }}">
+            <a class="flex items-center gap-md px-md py-3 rounded-lg transition-all sidebar-row {{ 'sidebar-active' if active_nav == key else 'text-on-primary-container hover:bg-white/5' }}" href="{{ href }}" title="{{ label }}">
                 <span class="material-symbols-outlined {{ 'text-secondary-fixed' if active_nav == key else 'opacity-70' }}">{{ icon }}</span>
-                <span class="font-label-md text-label-md">{{ label }}</span>
+                <span class="font-label-md text-label-md sidebar-label">{{ label }}</span>
             </a>
             {% endfor %}
         </nav>
         <div class="p-md border-t border-white/10">
-            <div class="flex items-center gap-3 px-md py-4 bg-white/5 rounded-xl">
-                <div class="w-10 h-10 rounded-full border border-secondary-fixed overflow-hidden flex-shrink-0 flex items-center justify-center bg-primary/40">
+            <div class="flex items-center gap-3 px-md py-4 bg-white/5 rounded-xl sidebar-row">
+                <div class="hidden w-10 h-10 rounded-full border border-secondary-fixed overflow-hidden flex-shrink-0 flex items-center justify-center bg-primary/40">
                     <span class="material-symbols-outlined text-secondary-fixed">person</span>
                 </div>
-                <div class="overflow-hidden flex-1">
+                <div class="overflow-hidden flex-1 sidebar-label">
                     <p class="font-label-md text-label-md truncate">Admin</p>
                     <p class="font-caption text-caption opacity-60 truncate">Sunset Swimming Pool</p>
                 </div>
@@ -55,8 +84,8 @@
     </aside>
 
     <!-- Top Navigation & Mobile Header -->
-    <div class="flex flex-col flex-grow md:ml-64">
-        <header class="fixed top-0 left-0 right-0 h-16 bg-surface-container-lowest border-b border-outline-variant z-40 flex items-center justify-between px-margin-mobile md:px-margin-desktop md:left-64">
+    <div class="flex flex-col flex-grow md:ml-64" id="admin-content">
+        <header class="fixed top-0 left-0 right-0 h-16 bg-surface-container-lowest border-b border-outline-variant z-40 flex items-center justify-between px-margin-mobile md:px-margin-desktop md:left-64" id="admin-header">
             <div class="flex items-center gap-4">
                 <button class="md:hidden text-primary" onclick="openSidebar()" type="button">
                     <span class="material-symbols-outlined text-2xl">menu</span>
@@ -82,7 +111,7 @@
             </div>
         </header>
 
-        <main class="pt-24 pb-16 px-margin-mobile md:px-margin-desktop w-full max-w-7xl mx-auto">
+        <main class="pt-24 pb-16 px-margin-mobile md:px-margin-desktop w-full">
             {% block content %}{% endblock %}
         </main>
     </div>
@@ -103,6 +132,10 @@
     function closeSidebar() {
         document.getElementById('admin-sidebar').classList.add('-translate-x-full');
         document.getElementById('sidebar-backdrop').classList.add('hidden');
+    }
+    function toggleSidebarCollapse() {
+        const expanded = document.documentElement.classList.toggle('sidebar-expanded');
+        localStorage.setItem('adminSidebarExpanded', expanded ? 'true' : 'false');
     }
     </script>
 </body>
