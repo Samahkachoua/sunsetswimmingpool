@@ -1,13 +1,15 @@
+import io
 import json
 import math
 from datetime import date, datetime, timedelta
 from datetime import date as date_cls
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from openpyxl import Workbook, load_workbook
 from postgrest.exceptions import APIError
 
 from app.supabase_client import get_admin_user, sign_in_admin, supabase
@@ -227,37 +229,17 @@ def register_form(request: Request):
     return templates.TemplateResponse(request, "register.html", {"open_cycles": open_cycles})
 
 
-@app.post("/register")
-def register_submit(
-    request: Request,
-    full_name: str = Form(...),
-    mother_name: str = Form(...),
-    phone: str = Form(...),
-    date_of_birth: date = Form(...),
-    level: str = Form(...),
-    time_preferred: str = Form(...),
-    cycle_id: int = Form(...),
-):
-    open_cycles = (
-        supabase.table("cycles")
-        .select("id, name, start_date, end_date, cycle_price")
-        .eq("is_open_for_registration", True)
-        .order("start_date")
-        .execute()
-        .data
-    )
-    open_cycle = next((cycle for cycle in open_cycles if cycle["id"] == cycle_id), None)
-    if open_cycle is None:
-        return templates.TemplateResponse(
-            request,
-            "register.html",
-            {
-                "open_cycles": open_cycles,
-                "error": "That cycle is no longer open for registration. Please choose a currently open cycle.",
-            },
-            status_code=400,
-        )
-
+def _upsert_registration(
+    full_name: str,
+    mother_name: str,
+    phone: str,
+    date_of_birth: date,
+    level: str,
+    time_preferred: str,
+    cycle_id: int,
+    cycle_price: float,
+) -> int:
+    """Create/update a participant and their enrollment for a cycle. Returns the enrollment id."""
     formatted_phone = f"+961 {phone}"
     existing_participant = (
         supabase.table("participants")
@@ -309,13 +291,51 @@ def register_submit(
                 "cycle_id": cycle_id,
                 "level": level,
                 "time_preferred": time_preferred,
-                "price": open_cycle["cycle_price"],
+                "price": cycle_price,
                 "status": "confirmed",
             })
             .execute()
             .data[0]
         )
         enrollment_id = enrollment["id"]
+
+    return enrollment_id
+
+
+@app.post("/register")
+def register_submit(
+    request: Request,
+    full_name: str = Form(...),
+    mother_name: str = Form(...),
+    phone: str = Form(...),
+    date_of_birth: date = Form(...),
+    level: str = Form(...),
+    time_preferred: str = Form(...),
+    cycle_id: int = Form(...),
+):
+    open_cycles = (
+        supabase.table("cycles")
+        .select("id, name, start_date, end_date, cycle_price")
+        .eq("is_open_for_registration", True)
+        .order("start_date")
+        .execute()
+        .data
+    )
+    open_cycle = next((cycle for cycle in open_cycles if cycle["id"] == cycle_id), None)
+    if open_cycle is None:
+        return templates.TemplateResponse(
+            request,
+            "register.html",
+            {
+                "open_cycles": open_cycles,
+                "error": "That cycle is no longer open for registration. Please choose a currently open cycle.",
+            },
+            status_code=400,
+        )
+
+    enrollment_id = _upsert_registration(
+        full_name, mother_name, phone, date_of_birth, level, time_preferred, cycle_id, open_cycle["cycle_price"]
+    )
 
     return RedirectResponse(url=f"/register/success/{enrollment_id}", status_code=303)
 
@@ -333,6 +353,141 @@ def register_success(request: Request, enrollment_id: int):
     if enrollment is None:
         raise HTTPException(status_code=404)
     return templates.TemplateResponse(request, "register_success.html", {"enrollment": enrollment})
+
+
+BULK_IMPORT_COLUMNS = ["full_name", "mother_name", "phone", "date_of_birth", "level", "time_preferred", "cycle_id"]
+BULK_IMPORT_LEVELS = {"beginner", "intermediate", "advanced"}
+BULK_IMPORT_TIME_PREFERRED = {"morning", "afternoon"}
+
+
+def _clean_phone_cell(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value).strip()
+
+
+def _parse_dob_cell(value) -> date:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value).strip())
+
+
+@app.get("/bulk-import")
+def bulk_import_form(request: Request):
+    return templates.TemplateResponse(request, "bulk_import.html", {"columns": BULK_IMPORT_COLUMNS, "error": None})
+
+
+@app.get("/bulk-import/template")
+def bulk_import_template():
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Registrations"
+    worksheet.append(BULK_IMPORT_COLUMNS)
+    worksheet.append(["Jane Doe", "Mary Doe", "70123456", "2015-06-01", "beginner", "morning", 1])
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    buffer.seek(0)
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=bulk_import_template.xlsx"},
+    )
+
+
+@app.post("/bulk-import")
+def bulk_import_submit(request: Request, file: UploadFile = File(...)):
+    try:
+        workbook = load_workbook(filename=io.BytesIO(file.file.read()), data_only=True)
+    except Exception:
+        return templates.TemplateResponse(
+            request,
+            "bulk_import.html",
+            {
+                "columns": BULK_IMPORT_COLUMNS,
+                "error": "Could not read that file. Please upload a valid .xlsx file.",
+            },
+            status_code=400,
+        )
+
+    worksheet = workbook.active
+    header_row = next(worksheet.iter_rows(min_row=1, max_row=1, values_only=True), ())
+    headers = [str(cell).strip().lower() if cell is not None else "" for cell in header_row]
+    missing_columns = [column for column in BULK_IMPORT_COLUMNS if column not in headers]
+    if missing_columns:
+        return templates.TemplateResponse(
+            request,
+            "bulk_import.html",
+            {
+                "columns": BULK_IMPORT_COLUMNS,
+                "error": f"Missing required column(s): {', '.join(missing_columns)}.",
+            },
+            status_code=400,
+        )
+
+    open_cycles = (
+        supabase.table("cycles")
+        .select("id, cycle_price")
+        .eq("is_open_for_registration", True)
+        .execute()
+        .data
+    )
+    open_cycle_price_by_id = {cycle["id"]: cycle["cycle_price"] for cycle in open_cycles}
+
+    results = []
+    for row_number, row in enumerate(worksheet.iter_rows(min_row=2, values_only=True), start=2):
+        if row is None or all(value is None for value in row):
+            continue
+        row_data = dict(zip(headers, row))
+        row_label = str(row_data.get("full_name") or f"Row {row_number}")
+        try:
+            full_name = str(row_data["full_name"] or "").strip()
+            mother_name = str(row_data["mother_name"] or "").strip()
+            phone = _clean_phone_cell(row_data["phone"])
+            date_of_birth = _parse_dob_cell(row_data["date_of_birth"])
+            level = str(row_data["level"] or "").strip().lower()
+            time_preferred = str(row_data["time_preferred"] or "").strip().lower()
+            cycle_id = int(row_data["cycle_id"])
+
+            if not full_name or not mother_name or not phone:
+                raise ValueError("full_name, mother_name, and phone are all required.")
+            if level not in BULK_IMPORT_LEVELS:
+                raise ValueError(f"level must be one of: {', '.join(sorted(BULK_IMPORT_LEVELS))}.")
+            if time_preferred not in BULK_IMPORT_TIME_PREFERRED:
+                raise ValueError(f"time_preferred must be one of: {', '.join(sorted(BULK_IMPORT_TIME_PREFERRED))}.")
+            if cycle_id not in open_cycle_price_by_id:
+                raise ValueError(f"cycle_id {cycle_id} is not currently open for registration.")
+
+            enrollment_id = _upsert_registration(
+                full_name,
+                mother_name,
+                phone,
+                date_of_birth,
+                level,
+                time_preferred,
+                cycle_id,
+                open_cycle_price_by_id[cycle_id],
+            )
+            results.append({
+                "row": row_number,
+                "name": row_label,
+                "status": "ok",
+                "detail": f"Enrollment #{enrollment_id}",
+            })
+        except Exception as exc:
+            results.append({"row": row_number, "name": row_label, "status": "error", "detail": str(exc)})
+
+    succeeded = sum(1 for result in results if result["status"] == "ok")
+    failed = sum(1 for result in results if result["status"] == "error")
+
+    return templates.TemplateResponse(
+        request,
+        "bulk_import_results.html",
+        {"results": results, "succeeded": succeeded, "failed": failed, "total": len(results)},
+    )
 
 
 def _safe_next_path(next_path: str) -> str:
