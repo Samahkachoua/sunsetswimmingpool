@@ -551,7 +551,7 @@ def admin_logout():
 def admin_dashboard(request: Request):
     enrollments = (
         supabase.table("enrollments")
-        .select("id, level, status, created_at, participants(full_name)")
+        .select("id, level, status, cycle_id, time_preferred, created_at, participants(full_name)")
         .order("created_at", desc=True)
         .execute()
         .data
@@ -565,10 +565,24 @@ def admin_dashboard(request: Request):
         .count
     )
 
+    open_cycle = (
+        supabase.table("cycles")
+        .select("id")
+        .eq("is_open_for_registration", True)
+        .limit(1)
+        .execute()
+        .data
+    )
+    open_cycle_id = open_cycle[0]["id"] if open_cycle else None
+
     level_counts = {"beginner": 0, "intermediate": 0, "advanced": 0}
+    time_preferred_counts = {"morning": 0, "afternoon": 0}
     for enrollment in enrollments:
         if enrollment["level"] in level_counts:
             level_counts[enrollment["level"]] += 1
+        if open_cycle_id is not None and enrollment["cycle_id"] == open_cycle_id:
+            if enrollment["time_preferred"] in time_preferred_counts:
+                time_preferred_counts[enrollment["time_preferred"]] += 1
         enrollment["created_at_display"] = datetime.fromisoformat(enrollment["created_at"]).strftime("%B %d, %Y")
 
     return templates.TemplateResponse(
@@ -580,6 +594,7 @@ def admin_dashboard(request: Request):
             "total_reservations": total_reservations,
             "cancelled_reservations": cancelled_reservations,
             "level_counts": level_counts,
+            "time_preferred_counts": time_preferred_counts,
             "recent_enrollments": enrollments[:10],
             "status_classes": STATUS_BADGE_CLASSES,
         },
