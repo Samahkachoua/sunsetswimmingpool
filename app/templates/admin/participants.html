@@ -17,7 +17,7 @@
 
     <div class="bg-white rounded-xl shadow-[0px_4px_20px_rgba(11,37,69,0.08)] overflow-hidden flex flex-col border border-outline-variant">
         {% include "admin/_page_size_bar.html" %}
-        <div class="grid grid-cols-[1fr_80px_1fr_1fr_100px] px-lg py-2.5 border-b border-outline-variant bg-surface-container-low text-label-md font-bold text-on-surface-variant uppercase tracking-wider">
+        <div class="hidden md:grid grid-cols-[1fr_80px_1fr_1fr_100px] px-lg py-2.5 border-b border-outline-variant bg-surface-container-low text-label-md font-bold text-on-surface-variant uppercase tracking-wider">
             <div>{{ m.sort_header(request, 'Name', 'full_name', sort_by, sort_dir) }}</div>
             <div>{{ m.sort_header(request, 'Age', 'date_of_birth', sort_by, sort_dir) }}</div>
             <div>{{ m.sort_header(request, "Mother's Name", 'mother_name', sort_by, sort_dir) }}</div>
@@ -26,7 +26,7 @@
         </div>
         <div class="overflow-y-auto flex-1">
             {% for participant in participants %}
-            <div class="grid grid-cols-[1fr_80px_1fr_1fr_100px] px-lg py-2 border-b border-outline-variant hover:bg-surface-container-low transition-colors items-center {{ 'bg-surface-container-lowest' if loop.index0 % 2 == 1 else '' }}">
+            <div class="hidden md:grid grid-cols-[1fr_80px_1fr_1fr_100px] px-lg py-2 border-b border-outline-variant hover:bg-surface-container-low transition-colors items-center {{ 'bg-surface-container-lowest' if loop.index0 % 2 == 1 else '' }}">
                 <p class="font-body-md text-body-md font-bold text-primary truncate text-start" title="{{ participant.full_name }}">{{ participant.full_name }}</p>
                 <div class="text-start font-body-md text-body-md text-on-surface-variant">{{ participant.age }}</div>
                 <div class="font-body-md text-body-md text-on-surface-variant truncate text-start" title="{{ participant.mother_name }}">{{ participant.mother_name }}</div>
@@ -40,6 +40,28 @@
                             <span class="material-symbols-outlined">delete</span>
                         </button>
                     </form>
+                </div>
+            </div>
+
+            <!-- Mobile card -->
+            <div class="md:hidden p-lg border-b border-outline-variant space-y-2 {{ 'bg-surface-container-lowest' if loop.index0 % 2 == 1 else '' }}">
+                <div class="flex items-start justify-between gap-2">
+                    <p class="font-body-md text-body-md font-bold text-primary truncate" title="{{ participant.full_name }}">{{ participant.full_name }}</p>
+                    <div class="flex gap-1 shrink-0">
+                        <button class="p-1.5 text-on-surface-variant hover:text-primary transition-colors" onclick="document.getElementById('edit-dialog-{{ participant.id }}').showModal()" title="Edit" type="button">
+                            <span class="material-symbols-outlined text-[20px]">edit</span>
+                        </button>
+                        <form action="/admin/participants/{{ participant.id }}/delete" method="post" onsubmit="return confirm('Delete {{ participant.full_name }}? This also deletes their enrollment history and cannot be undone.');">
+                            <button class="p-1.5 text-on-surface-variant hover:text-error transition-colors" title="Delete" type="submit">
+                                <span class="material-symbols-outlined text-[20px]">delete</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-x-3 gap-y-1 font-body-md text-sm text-on-surface-variant">
+                    <div class="truncate"><span class="text-on-surface-variant/70">Age:</span> {{ participant.age }}</div>
+                    <div class="truncate" title="{{ participant.mother_name }}"><span class="text-on-surface-variant/70">Mother:</span> {{ participant.mother_name }}</div>
+                    <div class="col-span-2 truncate" title="{{ participant.phone }}"><span class="text-on-surface-variant/70">Phone:</span> {{ participant.phone }}</div>
                 </div>
             </div>
 

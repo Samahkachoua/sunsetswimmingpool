@@ -1,6 +1,7 @@
 import io
 import json
 import math
+import os
 from datetime import date, datetime, timedelta
 from datetime import date as date_cls
 from urllib.parse import urlencode
@@ -18,6 +19,12 @@ app = FastAPI(title="Sunset Swimming Pool")
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
+
+# Falls back to the production domain if unset, so canonical URLs are still
+# correct if a deployment forgets to set it — set SITE_URL=http://localhost:8000
+# (or similar) in .env for local dev so canonical tags don't point at prod.
+SITE_URL = os.environ.get("SITE_URL", "https://sunsetswimmingpool.com").rstrip("/")
+templates.env.globals["SITE_URL"] = SITE_URL
 
 SESSION_COOKIE = "sb_access_token"
 
