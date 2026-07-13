@@ -25,18 +25,18 @@
 
     <div class="bg-surface-container-lowest p-lg rounded-2xl border border-outline-variant shadow-sm flex flex-col items-start">
         <div class="flex items-center justify-between w-full mb-md">
-            <span class="material-symbols-outlined p-2 bg-tertiary-fixed/20 text-on-tertiary-fixed-variant rounded-lg">pending_actions</span>
-        </div>
-        <p class="font-label-md text-on-surface-variant">Pending Enrollments</p>
-        <h3 class="font-headline-lg text-headline-lg text-primary mt-1">{{ pending_enrollments }}</h3>
-    </div>
-
-    <div class="bg-surface-container-lowest p-lg rounded-2xl border border-outline-variant shadow-sm flex flex-col items-start">
-        <div class="flex items-center justify-between w-full mb-md">
             <span class="material-symbols-outlined p-2 bg-primary-container/5 text-primary-container rounded-lg">calendar_today</span>
         </div>
         <p class="font-label-md text-on-surface-variant">Total Reservations</p>
         <h3 class="font-headline-lg text-headline-lg text-primary mt-1">{{ total_reservations }}</h3>
+    </div>
+
+    <div class="bg-surface-container-lowest p-lg rounded-2xl border border-outline-variant shadow-sm flex flex-col items-start">
+        <div class="flex items-center justify-between w-full mb-md">
+            <span class="material-symbols-outlined p-2 bg-error-container/50 text-on-error-container rounded-lg">event_busy</span>
+        </div>
+        <p class="font-label-md text-on-surface-variant">Cancelled Reservations</p>
+        <h3 class="font-headline-lg text-headline-lg text-primary mt-1">{{ cancelled_reservations }}</h3>
     </div>
 
     <div class="bg-surface-container-lowest p-lg rounded-2xl border border-outline-variant shadow-sm flex flex-col items-start">

@@ -550,14 +550,18 @@ def admin_dashboard(request: Request):
         .data
     )
     total_reservations = supabase.table("reservations").select("id", count="exact").execute().count
+    cancelled_reservations = (
+        supabase.table("reservations")
+        .select("id", count="exact")
+        .eq("status", "cancelled")
+        .execute()
+        .count
+    )
 
     level_counts = {"beginner": 0, "intermediate": 0, "advanced": 0}
-    pending_enrollments = 0
     for enrollment in enrollments:
         if enrollment["level"] in level_counts:
             level_counts[enrollment["level"]] += 1
-        if enrollment["status"] == "pending":
-            pending_enrollments += 1
         enrollment["created_at_display"] = datetime.fromisoformat(enrollment["created_at"]).strftime("%B %d, %Y")
 
     return templates.TemplateResponse(
@@ -566,8 +570,8 @@ def admin_dashboard(request: Request):
         {
             "today": date.today().strftime("%B %d, %Y"),
             "total_enrollments": len(enrollments),
-            "pending_enrollments": pending_enrollments,
             "total_reservations": total_reservations,
+            "cancelled_reservations": cancelled_reservations,
             "level_counts": level_counts,
             "recent_enrollments": enrollments[:10],
             "status_classes": STATUS_BADGE_CLASSES,
