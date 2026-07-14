@@ -1,0 +1,107 @@
+{% extends "admin/base.html" %}
+{% import "admin/_macros.html" as m %}
+
+{% set active_nav = "payments" %}
+{% block title %}Payments — Sunset Swimming Pool Admin{% endblock %}
+{% block header_title %}Payments{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-lg">
+    <div>
+        <h2 class="font-headline-lg text-headline-lg text-primary-container">Payments</h2>
+        <p class="font-body-md text-body-md text-on-surface-variant">All payments recorded across enrollments and reservations.</p>
+    </div>
+</div>
+
+<div class="bg-white rounded-xl border border-surface-container-high shadow-[0px_4px_20px_rgba(11,37,69,0.08)] p-lg mb-lg">
+    <form method="get" action="/admin/payments" class="flex flex-wrap items-end gap-4">
+        <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Date From</label>
+            <input class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="date_from" type="date" value="{{ date_from }}">
+        </div>
+        <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Date To</label>
+            <input class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="date_to" type="date" value="{{ date_to }}">
+        </div>
+        <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Method</label>
+            <select class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="method">
+                <option value="">All Methods</option>
+                {% for method_option in payment_methods %}
+                <option value="{{ method_option }}" {{ 'selected' if method_filter == method_option }}>{{ method_option | capitalize }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Source</label>
+            <select class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="source">
+                <option value="">All Sources</option>
+                {% for source_option in payment_sources %}
+                <option value="{{ source_option }}" {{ 'selected' if source_filter == source_option }}>{{ source_option | capitalize }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex items-center gap-2">
+            <button class="px-lg py-2 bg-primary-container text-white rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity" type="submit">Apply Filters</button>
+            {% if date_from or date_to or method_filter or source_filter %}
+            <a class="px-lg py-2 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low transition-colors border border-outline-variant" href="/admin/payments">Clear</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<div class="bg-white rounded-xl overflow-hidden border border-surface-container-high shadow-[0px_4px_20px_rgba(11,37,69,0.08)]">
+    {% include "admin/_page_size_bar.html" %}
+    <div class="hidden md:block overflow-x-auto">
+        <table class="w-full text-left border-collapse table-fixed">
+            <thead>
+                <tr class="bg-surface-container-low border-b border-surface-container-high">
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[15%]">{{ m.sort_header(request, 'Source', 'payable_type', sort_by, sort_dir) }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[30%]">For</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[15%]">{{ m.sort_header(request, 'Amount', 'amount', sort_by, sort_dir) }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[20%]">{{ m.sort_header(request, 'Date', 'paid_at', sort_by, sort_dir) }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[20%]">{{ m.sort_header(request, 'Method', 'method', sort_by, sort_dir) }}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-surface-container-low">
+                {% for payment in payments %}
+                <tr class="hover:bg-surface-container-lowest transition-colors {{ 'bg-surface-container-lowest/60' if loop.index0 % 2 == 1 else '' }}">
+                    <td class="px-6 py-2 overflow-hidden">
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-bold uppercase tracking-tighter {{ 'bg-secondary-container/20 text-on-secondary-container' if payment.source_label == 'Enrollment' else 'bg-primary-container/10 text-primary-container' }}">{{ payment.source_label }}</span>
+                    </td>
+                    <td class="px-6 py-2 font-label-md text-label-md text-primary truncate text-start" title="{{ payment.source_name }}">{{ payment.source_name or "—" }}</td>
+                    <td class="px-6 py-2 font-label-md text-label-md text-primary text-right">${{ "%.2f"|format(payment.amount) }}</td>
+                    <td class="px-6 py-2 font-body-md text-body-md text-on-surface-variant text-start">{{ payment.paid_at | short_date }}</td>
+                    <td class="px-6 py-2 font-body-md text-body-md text-on-surface truncate text-start">{{ payment.method | capitalize }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td class="px-6 py-8 text-center font-body-md text-on-surface-variant" colspan="5">No payments recorded yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Mobile cards -->
+    <div class="md:hidden divide-y divide-surface-container-low">
+        {% for payment in payments %}
+        <div class="p-lg space-y-2 {{ 'bg-surface-container-lowest/60' if loop.index0 % 2 == 1 else '' }}">
+            <div class="flex items-start justify-between gap-2">
+                <p class="font-label-md text-label-md text-primary truncate" title="{{ payment.source_name }}">{{ payment.source_name or "—" }}</p>
+                <span class="shrink-0 inline-flex items-center px-3 py-1 rounded-full text-[12px] font-bold uppercase tracking-tighter {{ 'bg-secondary-container/20 text-on-secondary-container' if payment.source_label == 'Enrollment' else 'bg-primary-container/10 text-primary-container' }}">{{ payment.source_label }}</span>
+            </div>
+            <div class="grid grid-cols-2 gap-x-3 gap-y-1 font-body-md text-sm text-on-surface-variant">
+                <div><span class="text-on-surface-variant/70">Amount:</span> ${{ "%.2f"|format(payment.amount) }}</div>
+                <div><span class="text-on-surface-variant/70">Method:</span> {{ payment.method | capitalize }}</div>
+                <div class="col-span-2"><span class="text-on-surface-variant/70">Date:</span> {{ payment.paid_at | short_date }}</div>
+            </div>
+        </div>
+        {% else %}
+        <div class="px-lg py-8 text-center font-body-md text-on-surface-variant">No payments recorded yet.</div>
+        {% endfor %}
+    </div>
+
+    {% include "admin/_pager.html" %}
+</div>
+{% endblock %}

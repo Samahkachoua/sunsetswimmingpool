@@ -28,8 +28,8 @@ templates.env.globals["SITE_URL"] = SITE_URL
 
 SESSION_COOKIE = "sb_access_token"
 
-PAGE_SIZE_OPTIONS = [10, 50, 100, 200, 500]
-DEFAULT_PAGE_SIZE = 50
+PAGE_SIZE_OPTIONS = [25, 50, 100, 200, 500]
+DEFAULT_PAGE_SIZE = 25
 
 
 def _url_with(request: Request, **overrides) -> str:
@@ -725,20 +725,38 @@ PARTICIPANTS_SORTABLE = {
 
 
 @admin_router.get("/admin/participants")
-def admin_participants(request: Request):
+def admin_participants(
+    request: Request,
+    age_min: int | None = None,
+    age_max: int | None = None,
+    full_name: str | None = None,
+    mother_name: str | None = None,
+    phone: str | None = None,
+):
     page, page_size, sort_by, sort_dir = _parse_list_params(
         request, PARTICIPANTS_SORTABLE, default_sort="full_name", default_dir="asc"
     )
     column = PARTICIPANTS_SORTABLE[sort_by]
+    min_dob, max_dob = _age_bounds_to_dob_range(age_min, age_max)
+
+    def apply_filters(query):
+        if min_dob is not None:
+            query = query.gte("date_of_birth", min_dob.isoformat())
+        if max_dob is not None:
+            query = query.lte("date_of_birth", max_dob.isoformat())
+        if full_name:
+            query = query.ilike("full_name", f"%{full_name}%")
+        if mother_name:
+            query = query.ilike("mother_name", f"%{mother_name}%")
+        if phone:
+            query = query.ilike("phone", f"%{phone}%")
+        return query
 
     def build_query(start, end):
-        return (
-            supabase.table("participants")
-            .select("id, full_name, mother_name, phone, date_of_birth", count="exact")
-            .order(column, desc=(sort_dir == "desc"))
-            .range(start, end)
-            .execute()
+        query = apply_filters(
+            supabase.table("participants").select("id, full_name, mother_name, phone, date_of_birth", count="exact")
         )
+        return query.order(column, desc=(sort_dir == "desc")).range(start, end).execute()
 
     participants, total, page, total_pages = _fetch_page(build_query, page, page_size)
     for participant in participants:
@@ -756,6 +774,11 @@ def admin_participants(request: Request):
             "total_pages": total_pages,
             "sort_by": sort_by,
             "sort_dir": sort_dir,
+            "age_min": age_min if age_min is not None else "",
+            "age_max": age_max if age_max is not None else "",
+            "full_name_filter": full_name or "",
+            "mother_name_filter": mother_name or "",
+            "phone_filter": phone or "",
         },
     )
 
@@ -1200,6 +1223,117 @@ def admin_reservations_cancel(reservation_id: int):
     reservation_date = datetime.fromisoformat(reservation["starts_at"]).date().isoformat()
     supabase.table("reservations").update({"status": "cancelled"}).eq("id", reservation_id).execute()
     return RedirectResponse(url=f"/admin/reservations?date={reservation_date}", status_code=303)
+
+
+PAYMENTS_SORTABLE = {
+    "payable_type": "payable_type",
+    "amount": "amount",
+    "method": "method",
+    "paid_at": "paid_at",
+}
+PAYMENT_METHODS = ["cash", "whish"]
+PAYMENT_SOURCES = ["enrollment", "reservation"]
+
+
+@admin_router.get("/admin/payments")
+def admin_payments(
+    request: Request,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    method: str | None = None,
+    source: str | None = None,
+):
+    page, page_size, sort_by, sort_dir = _parse_list_params(
+        request, PAYMENTS_SORTABLE, default_sort="paid_at", default_dir="desc"
+    )
+    column = PAYMENTS_SORTABLE[sort_by]
+
+    try:
+        date_from = date_cls.fromisoformat(date_from).isoformat() if date_from else None
+    except ValueError:
+        date_from = None
+    try:
+        date_to = date_cls.fromisoformat(date_to).isoformat() if date_to else None
+    except ValueError:
+        date_to = None
+    if method not in PAYMENT_METHODS:
+        method = None
+    if source not in PAYMENT_SOURCES:
+        source = None
+
+    def apply_filters(query):
+        if date_from:
+            query = query.gte("paid_at", f"{date_from}T00:00:00")
+        if date_to:
+            query = query.lte("paid_at", f"{date_to}T23:59:59")
+        if method:
+            query = query.eq("method", method)
+        if source:
+            query = query.eq("payable_type", source)
+        return query
+
+    def build_query(start, end):
+        query = apply_filters(
+            supabase.table("payments").select("id, payable_type, payable_id, amount, method, paid_at", count="exact")
+        )
+        return query.order(column, desc=(sort_dir == "desc")).range(start, end).execute()
+
+    payments, total, page, total_pages = _fetch_page(build_query, page, page_size)
+
+    enrollment_ids = [p["payable_id"] for p in payments if p["payable_type"] == "enrollment"]
+    reservation_ids = [p["payable_id"] for p in payments if p["payable_type"] == "reservation"]
+
+    name_by_enrollment_id = {}
+    if enrollment_ids:
+        rows = (
+            supabase.table("enrollments")
+            .select("id, participants(full_name)")
+            .in_("id", enrollment_ids)
+            .execute()
+            .data
+        )
+        for row in rows:
+            name_by_enrollment_id[row["id"]] = row["participants"]["full_name"] if row["participants"] else None
+
+    name_by_reservation_id = {}
+    if reservation_ids:
+        rows = (
+            supabase.table("reservations")
+            .select("id, customer_name")
+            .in_("id", reservation_ids)
+            .execute()
+            .data
+        )
+        for row in rows:
+            name_by_reservation_id[row["id"]] = row["customer_name"]
+
+    for payment in payments:
+        if payment["payable_type"] == "enrollment":
+            payment["source_label"] = "Enrollment"
+            payment["source_name"] = name_by_enrollment_id.get(payment["payable_id"])
+        else:
+            payment["source_label"] = "Reservation"
+            payment["source_name"] = name_by_reservation_id.get(payment["payable_id"])
+
+    return templates.TemplateResponse(
+        request,
+        "admin/payments.html",
+        {
+            "payments": payments,
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "total_pages": total_pages,
+            "sort_by": sort_by,
+            "sort_dir": sort_dir,
+            "date_from": date_from or "",
+            "date_to": date_to or "",
+            "method_filter": method or "",
+            "payment_methods": PAYMENT_METHODS,
+            "source_filter": source or "",
+            "payment_sources": PAYMENT_SOURCES,
+        },
+    )
 
 
 @admin_router.get("/admin/settings")

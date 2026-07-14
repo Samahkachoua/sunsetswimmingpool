@@ -15,6 +15,37 @@
         <p class="font-body-md text-body-md text-on-surface-variant">Manage and track pool members.</p>
     </div>
 
+    <div class="bg-white rounded-xl border border-outline-variant shadow-[0px_4px_20px_rgba(11,37,69,0.08)] p-lg">
+        <form method="get" action="/admin/participants" class="flex flex-wrap items-end gap-4">
+            <div class="space-y-1">
+                <label class="block font-label-md text-label-md text-on-surface-variant">Min Age</label>
+                <input class="block w-20 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" min="0" name="age_min" type="number" value="{{ age_min }}">
+            </div>
+            <div class="space-y-1">
+                <label class="block font-label-md text-label-md text-on-surface-variant">Max Age</label>
+                <input class="block w-20 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" min="0" name="age_max" type="number" value="{{ age_max }}">
+            </div>
+            <div class="space-y-1">
+                <label class="block font-label-md text-label-md text-on-surface-variant">Name</label>
+                <input class="block w-44 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="full_name" placeholder="Search name" type="text" value="{{ full_name_filter }}">
+            </div>
+            <div class="space-y-1">
+                <label class="block font-label-md text-label-md text-on-surface-variant">Mother's Name</label>
+                <input class="block w-44 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="mother_name" placeholder="Search mother's name" type="text" value="{{ mother_name_filter }}">
+            </div>
+            <div class="space-y-1">
+                <label class="block font-label-md text-label-md text-on-surface-variant">Phone Number</label>
+                <input class="block w-44 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="phone" placeholder="Search phone" type="text" value="{{ phone_filter }}">
+            </div>
+            <div class="flex items-center gap-2">
+                <button class="px-lg py-2 bg-primary-container text-white rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity" type="submit">Apply Filters</button>
+                {% if age_min or age_max or full_name_filter or mother_name_filter or phone_filter %}
+                <a class="px-lg py-2 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low transition-colors border border-outline-variant" href="/admin/participants">Clear</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
     <div class="bg-white rounded-xl shadow-[0px_4px_20px_rgba(11,37,69,0.08)] overflow-hidden flex flex-col border border-outline-variant">
         {% include "admin/_page_size_bar.html" %}
         <div class="hidden md:grid grid-cols-[1fr_80px_1fr_1fr_100px] px-lg py-2.5 border-b border-outline-variant bg-surface-container-low text-label-md font-bold text-on-surface-variant uppercase tracking-wider">
