@@ -5,7 +5,6 @@ app/templates/bulk_import.html
 /migrations/*
 /design
 /design/*
-requirements.txt
 schema.sql
 .env
 .env.example
