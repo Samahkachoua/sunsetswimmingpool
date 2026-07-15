@@ -1,4 +1,6 @@
 /.vscode
+__pycache__/
+*.pyc
 app/templates/bulk_import_results.html
 app/templates/bulk_import.html
 /migrations
