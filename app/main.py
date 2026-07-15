@@ -727,8 +727,8 @@ PARTICIPANTS_SORTABLE = {
 @admin_router.get("/admin/participants")
 def admin_participants(
     request: Request,
-    age_min: int | None = None,
-    age_max: int | None = None,
+    age_min: str | None = None,
+    age_max: str | None = None,
     full_name: str | None = None,
     mother_name: str | None = None,
     phone: str | None = None,
@@ -737,6 +737,16 @@ def admin_participants(
         request, PARTICIPANTS_SORTABLE, default_sort="full_name", default_dir="asc"
     )
     column = PARTICIPANTS_SORTABLE[sort_by]
+
+    try:
+        age_min = int(age_min) if age_min else None
+    except ValueError:
+        age_min = None
+    try:
+        age_max = int(age_max) if age_max else None
+    except ValueError:
+        age_max = None
+
     min_dob, max_dob = _age_bounds_to_dob_range(age_min, age_max)
 
     def apply_filters(query):
