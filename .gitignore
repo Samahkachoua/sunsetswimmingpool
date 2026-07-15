@@ -3,8 +3,8 @@
 /app/templates/bulk_import.html
 /migrations
 /design
-requirements.txt
-schema.sql
+/requirements.txt
+/schema.sql
 .env
 .env.example
 .mcp.json
