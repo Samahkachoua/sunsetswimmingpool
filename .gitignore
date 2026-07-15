@@ -11,5 +11,5 @@
 .mcp.json
 /.vscode
 schema.sql
-/app/static/templates/bulk_import_results.html
-/app/static/templates/bulk_import.html
+/app/emplates/bulk_import_results.html
+/app/templates/bulk_import.html
