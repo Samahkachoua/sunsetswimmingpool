@@ -129,6 +129,7 @@ def _age_bounds_to_dob_range(age_min: int | None, age_max: int | None):
 ENROLLMENTS_FILTER_COOKIE = "enrollments_filters"
 PARTICIPANTS_FILTER_COOKIE = "participants_filters"
 PAYMENTS_FILTER_COOKIE = "payments_filters"
+RESERVATIONS_FILTER_COOKIE = "reservations_filters"
 
 
 def _get_filters_cookie(request: Request, cookie_name: str) -> dict:
@@ -149,6 +150,15 @@ def _set_filters_cookie_response(url: str, cookie_name: str, filters: dict) -> R
         response.set_cookie(cookie_name, json.dumps(filters), httponly=True, samesite="lax")
     else:
         response.delete_cookie(cookie_name)
+    return response
+
+
+def _reservations_redirect(date_iso: str, error: str | None = None) -> RedirectResponse:
+    url = "/admin/reservations" + (f"?error={error}" if error else "")
+    response = RedirectResponse(url=url, status_code=303)
+    response.set_cookie(
+        RESERVATIONS_FILTER_COOKIE, json.dumps({"date": date_iso}), httponly=True, samesite="lax"
+    )
     return response
 
 
@@ -1153,9 +1163,13 @@ def _parse_reservation_window(
 
 
 @admin_router.get("/admin/reservations")
-def admin_reservations(request: Request, date: str | None = None):
+def admin_reservations(request: Request):
     pools = supabase.table("pools").select("id, name").order("name").execute().data
-    selected_date = date_cls.fromisoformat(date) if date else date_cls.today()
+    filters = _get_filters_cookie(request, RESERVATIONS_FILTER_COOKIE)
+    try:
+        selected_date = date_cls.fromisoformat(filters.get("date", ""))
+    except (ValueError, TypeError):
+        selected_date = date_cls.today()
 
     if not pools:
         return templates.TemplateResponse(
@@ -1228,6 +1242,15 @@ def admin_reservations(request: Request, date: str | None = None):
     )
 
 
+@admin_router.post("/admin/reservations/filters")
+def admin_reservations_set_date(date: str = Form("")):
+    try:
+        date_iso = date_cls.fromisoformat(date).isoformat()
+    except (ValueError, TypeError):
+        return _set_filters_cookie_response("/admin/reservations", RESERVATIONS_FILTER_COOKIE, {})
+    return _reservations_redirect(date_iso)
+
+
 @admin_router.post("/admin/reservations")
 def admin_reservations_create(
     pool_id: int = Form(...),
@@ -1242,10 +1265,7 @@ def admin_reservations_create(
     try:
         starts_at, ends_at = _parse_reservation_window(start_date, start_time, end_date, end_time)
     except ValueError as exc:
-        return RedirectResponse(
-            url=f"/admin/reservations?date={start_date.isoformat()}&error={exc}",
-            status_code=303,
-        )
+        return _reservations_redirect(start_date.isoformat(), str(exc))
 
     day_type = "weekend" if start_date.weekday() >= 5 else "weekday"
     pricing_rule = (
@@ -1274,11 +1294,8 @@ def admin_reservations_create(
             error = "That pool is already booked during part of this time range. Pick a different time or pool."
         else:
             error = "Could not create reservation. Check the status value."
-        return RedirectResponse(
-            url=f"/admin/reservations?date={start_date.isoformat()}&error={error}",
-            status_code=303,
-        )
-    return RedirectResponse(url=f"/admin/reservations?date={start_date.isoformat()}", status_code=303)
+        return _reservations_redirect(start_date.isoformat(), error)
+    return _reservations_redirect(start_date.isoformat())
 
 
 @admin_router.post("/admin/reservations/{reservation_id}/edit")
@@ -1296,10 +1313,7 @@ def admin_reservations_edit(
     try:
         starts_at, ends_at = _parse_reservation_window(start_date, start_time, end_date, end_time)
     except ValueError as exc:
-        return RedirectResponse(
-            url=f"/admin/reservations?date={start_date.isoformat()}&error={exc}",
-            status_code=303,
-        )
+        return _reservations_redirect(start_date.isoformat(), str(exc))
 
     day_type = "weekend" if start_date.weekday() >= 5 else "weekday"
     pricing_rule = (
@@ -1328,11 +1342,8 @@ def admin_reservations_edit(
             error = "That pool is already booked during part of this time range. Pick a different time or pool."
         else:
             error = "Could not save changes. Check the status value."
-        return RedirectResponse(
-            url=f"/admin/reservations?date={start_date.isoformat()}&error={error}",
-            status_code=303,
-        )
-    return RedirectResponse(url=f"/admin/reservations?date={start_date.isoformat()}", status_code=303)
+        return _reservations_redirect(start_date.isoformat(), error)
+    return _reservations_redirect(start_date.isoformat())
 
 
 @admin_router.post("/admin/reservations/{reservation_id}/record-payment")
@@ -1364,9 +1375,9 @@ def admin_reservations_record_payment(
     paid_so_far = sum(payment["amount"] for payment in payments)
     remaining = reservation["price_snapshot"] - paid_so_far
     if amount > remaining:
-        return RedirectResponse(
-            url=f"/admin/reservations?date={reservation_date}&error=Payment of ${amount:.2f} exceeds the remaining balance of ${remaining:.2f}.",
-            status_code=303,
+        return _reservations_redirect(
+            reservation_date,
+            f"Payment of ${amount:.2f} exceeds the remaining balance of ${remaining:.2f}.",
         )
 
     supabase.table("payments").insert({
@@ -1377,7 +1388,7 @@ def admin_reservations_record_payment(
         "paid_at": paid_at.isoformat(),
         "notes": notes or None,
     }).execute()
-    return RedirectResponse(url=f"/admin/reservations?date={reservation_date}", status_code=303)
+    return _reservations_redirect(reservation_date)
 
 
 @admin_router.post("/admin/reservations/{reservation_id}/cancel")
@@ -1392,7 +1403,7 @@ def admin_reservations_cancel(reservation_id: int):
     )
     reservation_date = datetime.fromisoformat(reservation["starts_at"]).date().isoformat()
     supabase.table("reservations").update({"status": "cancelled"}).eq("id", reservation_id).execute()
-    return RedirectResponse(url=f"/admin/reservations?date={reservation_date}", status_code=303)
+    return _reservations_redirect(reservation_date)
 
 
 PAYMENTS_SORTABLE = {

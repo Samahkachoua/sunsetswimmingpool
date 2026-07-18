@@ -18,9 +18,12 @@
 {% else %}
 <div class="flex items-center justify-between mb-lg gap-4 flex-wrap">
     <div class="flex items-center gap-md">
-        <a class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-all border border-outline-variant shrink-0" href="/admin/reservations?date={{ prev_date }}">
-            <span class="material-symbols-outlined">chevron_left</span>
-        </a>
+        <form action="/admin/reservations/filters" class="shrink-0" method="post">
+            <input name="date" type="hidden" value="{{ prev_date }}">
+            <button aria-label="Previous day" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-all border border-outline-variant" type="submit">
+                <span class="material-symbols-outlined">chevron_left</span>
+            </button>
+        </form>
         <div class="relative">
             <div class="text-center px-3 py-1 rounded-lg pointer-events-none">
                 <h2 class="font-title-md text-title-md text-primary flex items-center justify-center gap-1">
@@ -29,11 +32,16 @@
                 </h2>
                 <p class="font-caption text-caption text-outline uppercase tracking-wider">{{ weekday_name }}</p>
             </div>
-            <input aria-label="Jump to date" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" id="reservation-date-picker" onchange="if (this.value) { window.location.href = '/admin/reservations?date=' + this.value; }" type="date" value="{{ iso_date }}">
+            <form action="/admin/reservations/filters" class="absolute inset-0" method="post">
+                <input aria-label="Jump to date" class="w-full h-full opacity-0 cursor-pointer" id="reservation-date-picker" name="date" onchange="if (this.value) { this.form.submit(); }" type="date" value="{{ iso_date }}">
+            </form>
         </div>
-        <a class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-all border border-outline-variant shrink-0" href="/admin/reservations?date={{ next_date }}">
-            <span class="material-symbols-outlined">chevron_right</span>
-        </a>
+        <form action="/admin/reservations/filters" class="shrink-0" method="post">
+            <input name="date" type="hidden" value="{{ next_date }}">
+            <button aria-label="Next day" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-all border border-outline-variant" type="submit">
+                <span class="material-symbols-outlined">chevron_right</span>
+            </button>
+        </form>
     </div>
     <button class="flex items-center justify-center gap-2 bg-primary-container text-on-primary px-lg py-2.5 rounded-xl font-label-md text-label-md shadow-lg hover:opacity-90 transition-all w-full sm:w-auto" onclick="document.getElementById('new-reservation-dialog').showModal()" type="button">
         <span class="material-symbols-outlined">add</span>
