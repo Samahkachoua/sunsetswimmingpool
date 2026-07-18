@@ -14,7 +14,7 @@
 </div>
 
 <div class="bg-white rounded-xl border border-surface-container-high shadow-[0px_4px_20px_rgba(11,37,69,0.08)] p-lg mb-lg">
-    <form method="get" action="/admin/payments" class="flex flex-wrap items-end gap-4">
+    <form method="post" action="/admin/payments/filters" class="flex flex-wrap items-end gap-4">
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Date From</label>
             <input class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="date_from" type="date" value="{{ date_from }}">
@@ -44,7 +44,7 @@
         <div class="flex items-center gap-2">
             <button class="px-lg py-2 bg-primary-container text-white rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity" type="submit">Apply Filters</button>
             {% if date_from or date_to or method_filter or source_filter %}
-            <a class="px-lg py-2 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low transition-colors border border-outline-variant" href="/admin/payments">Clear</a>
+            <button class="px-lg py-2 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low transition-colors border border-outline-variant" formaction="/admin/payments/filters/clear" type="submit">Clear</button>
             {% endif %}
         </div>
     </form>
@@ -80,6 +80,13 @@
                 </tr>
                 {% endfor %}
             </tbody>
+            <tfoot>
+                <tr class="bg-surface-container-low border-t-2 border-outline-variant">
+                    <td class="px-6 py-2.5" colspan="2"></td>
+                    <td class="px-6 py-2.5 font-label-md text-label-md text-primary text-right font-bold">${{ "%.2f"|format(total_amount) }}</td>
+                    <td class="px-6 py-2.5" colspan="2"></td>
+                </tr>
+            </tfoot>
         </table>
     </div>
 
@@ -100,6 +107,10 @@
         {% else %}
         <div class="px-lg py-8 text-center font-body-md text-on-surface-variant">No payments recorded yet.</div>
         {% endfor %}
+    </div>
+    <div class="md:hidden px-lg py-3 border-t-2 border-outline-variant bg-surface-container-low flex justify-between items-center">
+        <span class="font-label-md text-label-md text-on-surface-variant">Total</span>
+        <span class="font-label-md text-label-md text-primary font-bold">${{ "%.2f"|format(total_amount) }}</span>
     </div>
 
     {% include "admin/_pager.html" %}

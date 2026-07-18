@@ -120,6 +120,14 @@
                 </tr>
                 {% endfor %}
             </tbody>
+            <tfoot>
+                <tr class="bg-surface-container-low border-t-2 border-outline-variant">
+                    <td class="px-6 py-2.5" colspan="5"></td>
+                    <td class="px-6 py-2.5 font-label-md text-label-md text-primary text-right font-bold">${{ "%.2f"|format(total_amount) }}</td>
+                    <td class="px-6 py-2.5 font-label-md text-label-md text-secondary text-right font-bold">${{ "%.2f"|format(total_paid) }}</td>
+                    <td class="px-6 py-2.5"></td>
+                </tr>
+            </tfoot>
         </table>
     </div>
 
@@ -155,6 +163,10 @@
         {% else %}
         <div class="px-lg py-8 text-center font-body-md text-on-surface-variant">No enrollments yet.</div>
         {% endfor %}
+    </div>
+    <div class="md:hidden px-lg py-3 border-t-2 border-outline-variant bg-surface-container-low flex justify-between items-center font-body-md text-sm">
+        <span class="text-on-surface-variant">Total <span class="text-primary font-bold">${{ "%.2f"|format(total_amount) }}</span></span>
+        <span class="text-on-surface-variant">Paid <span class="text-secondary font-bold">${{ "%.2f"|format(total_paid) }}</span></span>
     </div>
 
     {% include "admin/_pager.html" %}

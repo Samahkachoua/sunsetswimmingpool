@@ -91,7 +91,6 @@
                 <tr class="border-b border-outline-variant text-on-surface-variant">
                     <th class="pb-3 font-label-md">Participant</th>
                     <th class="pb-3 font-label-md">Level</th>
-                    <th class="pb-3 font-label-md">Status</th>
                     <th class="pb-3 font-label-md">Date</th>
                 </tr>
             </thead>
@@ -100,14 +99,11 @@
                 <tr>
                     <td class="py-4 font-body-md">{{ enrollment.participants.full_name if enrollment.participants else "—" }}</td>
                     <td class="py-4 font-body-md text-on-surface-variant">{{ enrollment.level | capitalize }}</td>
-                    <td class="py-4">
-                        <span class="px-2 py-1 rounded text-xs font-bold uppercase tracking-wider {{ status_classes.get(enrollment.status, 'bg-surface-container text-on-surface-variant') }}">{{ enrollment.status | capitalize }}</span>
-                    </td>
                     <td class="py-4 font-body-md text-on-surface-variant">{{ enrollment.created_at_display }}</td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4" class="py-6 text-center font-body-md text-on-surface-variant">No enrollments yet.</td>
+                    <td colspan="3" class="py-6 text-center font-body-md text-on-surface-variant">No enrollments yet.</td>
                 </tr>
                 {% endfor %}
             </tbody>

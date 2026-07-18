@@ -127,10 +127,13 @@ def _age_bounds_to_dob_range(age_min: int | None, age_max: int | None):
 
 
 ENROLLMENTS_FILTER_COOKIE = "enrollments_filters"
+PARTICIPANTS_FILTER_COOKIE = "participants_filters"
+PAYMENTS_FILTER_COOKIE = "payments_filters"
 
 
-def _get_enrollment_filters(request: Request) -> dict:
-    raw = request.cookies.get(ENROLLMENTS_FILTER_COOKIE)
+def _get_filters_cookie(request: Request, cookie_name: str) -> dict:
+    """Filters are kept out of the URL — read them back from a cookie instead."""
+    raw = request.cookies.get(cookie_name)
     if not raw:
         return {}
     try:
@@ -138,6 +141,15 @@ def _get_enrollment_filters(request: Request) -> dict:
         return parsed if isinstance(parsed, dict) else {}
     except (ValueError, TypeError):
         return {}
+
+
+def _set_filters_cookie_response(url: str, cookie_name: str, filters: dict) -> RedirectResponse:
+    response = RedirectResponse(url=url, status_code=303)
+    if filters:
+        response.set_cookie(cookie_name, json.dumps(filters), httponly=True, samesite="lax")
+    else:
+        response.delete_cookie(cookie_name)
+    return response
 
 
 templates.env.globals["url_with"] = _url_with
@@ -673,6 +685,32 @@ def admin_cycles_create(
     return RedirectResponse(url="/admin/cycles", status_code=303)
 
 
+@admin_router.post("/admin/cycles/{cycle_id}/edit")
+def admin_cycles_edit(
+    cycle_id: int,
+    name: str = Form(...),
+    start_date: date = Form(...),
+    end_date: date = Form(...),
+    cycle_price: float = Form(...),
+):
+    try:
+        supabase.table("cycles").update({
+            "name": name,
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "cycle_price": cycle_price,
+        }).eq("id", cycle_id).execute()
+    except APIError as exc:
+        if exc.code == "23P01":
+            error = "Those dates overlap an existing cycle. Pick a date range that doesn't conflict."
+        elif exc.code == "23514":
+            error = "Cycle price must be greater than 0."
+        else:
+            error = "Could not save changes."
+        return RedirectResponse(url=f"/admin/cycles?error={error}", status_code=303)
+    return RedirectResponse(url="/admin/cycles", status_code=303)
+
+
 def _close_all_open_cycles(except_cycle_id: int | None = None) -> None:
     """Only one cycle may be open for registration at a time."""
     query = (
@@ -725,29 +763,17 @@ PARTICIPANTS_SORTABLE = {
 
 
 @admin_router.get("/admin/participants")
-def admin_participants(
-    request: Request,
-    age_min: str | None = None,
-    age_max: str | None = None,
-    full_name: str | None = None,
-    mother_name: str | None = None,
-    phone: str | None = None,
-):
+def admin_participants(request: Request):
     page, page_size, sort_by, sort_dir = _parse_list_params(
         request, PARTICIPANTS_SORTABLE, default_sort="full_name", default_dir="asc"
     )
     column = PARTICIPANTS_SORTABLE[sort_by]
 
-    try:
-        age_min = int(age_min) if age_min else None
-    except ValueError:
-        age_min = None
-    try:
-        age_max = int(age_max) if age_max else None
-    except ValueError:
-        age_max = None
-
-    min_dob, max_dob = _age_bounds_to_dob_range(age_min, age_max)
+    filters = _get_filters_cookie(request, PARTICIPANTS_FILTER_COOKIE)
+    min_dob, max_dob = _age_bounds_to_dob_range(filters.get("age_min"), filters.get("age_max"))
+    full_name = filters.get("full_name")
+    mother_name = filters.get("mother_name")
+    phone = filters.get("phone")
 
     def apply_filters(query):
         if min_dob is not None:
@@ -784,13 +810,44 @@ def admin_participants(
             "total_pages": total_pages,
             "sort_by": sort_by,
             "sort_dir": sort_dir,
-            "age_min": age_min if age_min is not None else "",
-            "age_max": age_max if age_max is not None else "",
+            "age_min": filters.get("age_min", ""),
+            "age_max": filters.get("age_max", ""),
             "full_name_filter": full_name or "",
             "mother_name_filter": mother_name or "",
             "phone_filter": phone or "",
         },
     )
+
+
+@admin_router.post("/admin/participants/filters")
+def admin_participants_set_filters(
+    age_min: str = Form(""),
+    age_max: str = Form(""),
+    full_name: str = Form(""),
+    mother_name: str = Form(""),
+    phone: str = Form(""),
+):
+    filters = {}
+    try:
+        if age_min.strip():
+            filters["age_min"] = int(age_min)
+        if age_max.strip():
+            filters["age_max"] = int(age_max)
+    except ValueError:
+        pass
+    if full_name.strip():
+        filters["full_name"] = full_name.strip()
+    if mother_name.strip():
+        filters["mother_name"] = mother_name.strip()
+    if phone.strip():
+        filters["phone"] = phone.strip()
+
+    return _set_filters_cookie_response("/admin/participants", PARTICIPANTS_FILTER_COOKIE, filters)
+
+
+@admin_router.post("/admin/participants/filters/clear")
+def admin_participants_clear_filters():
+    return _set_filters_cookie_response("/admin/participants", PARTICIPANTS_FILTER_COOKIE, {})
 
 
 @admin_router.post("/admin/participants/{participant_id}/edit")
@@ -839,7 +896,7 @@ def admin_enrollments(request: Request):
     )
     column, foreign_table = ENROLLMENTS_SORTABLE[sort_by]
 
-    filters = _get_enrollment_filters(request)
+    filters = _get_filters_cookie(request, ENROLLMENTS_FILTER_COOKIE)
     min_dob, max_dob = _age_bounds_to_dob_range(filters.get("age_min"), filters.get("age_max"))
     paid_status_filter = filters.get("paid_status")
 
@@ -886,6 +943,25 @@ def admin_enrollments(request: Request):
                 paid_by_enrollment[payment["payable_id"]] = (
                     paid_by_enrollment.get(payment["payable_id"], 0) + payment["amount"]
                 )
+
+        # Totals across every filtered row, not just the current page. Reuses
+        # select_cols (not just "id, price") because the age filter references
+        # participants.date_of_birth, which only resolves when that embed is
+        # actually present in the select clause (participants!inner(...)).
+        all_matching_rows = apply_filters(supabase.table("enrollments").select(select_cols)).execute().data
+        total_amount = sum(row["price"] for row in all_matching_rows)
+        total_paid = 0.0
+        all_matching_ids = [row["id"] for row in all_matching_rows]
+        if all_matching_ids:
+            all_payments = (
+                supabase.table("payments")
+                .select("amount")
+                .eq("payable_type", "enrollment")
+                .in_("payable_id", all_matching_ids)
+                .execute()
+                .data
+            )
+            total_paid = sum(payment["amount"] for payment in all_payments)
     else:
         # Paid status is derived from the payments table, not a real column, so it
         # can't be pushed into the enrollments query. Fetch everything matching the
@@ -924,6 +1000,10 @@ def admin_enrollments(request: Request):
         enrollments = filtered[start : start + page_size]
         paid_by_enrollment = paid_lookup
 
+        # Totals across every filtered row, not just the current page.
+        total_amount = sum(enrollment["price"] for enrollment in filtered)
+        total_paid = sum(paid_lookup.get(enrollment["id"], 0) for enrollment in filtered)
+
     time_slots = supabase.table("time_slots").select("id, start_time, end_time, period").order("start_time").execute().data
 
     for enrollment in enrollments:
@@ -947,6 +1027,8 @@ def admin_enrollments(request: Request):
             "sort_by": sort_by,
             "sort_dir": sort_dir,
             "filters": filters,
+            "total_amount": total_amount,
+            "total_paid": total_paid,
         },
     )
 
@@ -977,19 +1059,12 @@ def admin_enrollments_set_filters(
     if paid_status:
         filters["paid_status"] = paid_status
 
-    response = RedirectResponse(url="/admin/enrollments", status_code=303)
-    if filters:
-        response.set_cookie(ENROLLMENTS_FILTER_COOKIE, json.dumps(filters), httponly=True, samesite="lax")
-    else:
-        response.delete_cookie(ENROLLMENTS_FILTER_COOKIE)
-    return response
+    return _set_filters_cookie_response("/admin/enrollments", ENROLLMENTS_FILTER_COOKIE, filters)
 
 
 @admin_router.post("/admin/enrollments/filters/clear")
 def admin_enrollments_clear_filters():
-    response = RedirectResponse(url="/admin/enrollments", status_code=303)
-    response.delete_cookie(ENROLLMENTS_FILTER_COOKIE)
-    return response
+    return _set_filters_cookie_response("/admin/enrollments", ENROLLMENTS_FILTER_COOKIE, {})
 
 
 @admin_router.post("/admin/enrollments/{enrollment_id}/edit")
@@ -1066,6 +1141,17 @@ def admin_enrollments_delete(enrollment_id: int):
     return RedirectResponse(url="/admin/enrollments", status_code=303)
 
 
+def _parse_reservation_window(
+    start_date: date_cls, start_time: str, end_date: date_cls, end_time: str
+) -> tuple[str, str]:
+    """Combine separate date/time inputs into ISO datetimes, requiring end strictly after start."""
+    starts_at = f"{start_date.isoformat()}T{start_time}:00"
+    ends_at = f"{end_date.isoformat()}T{end_time}:00"
+    if ends_at <= starts_at:
+        raise ValueError("End date/time must be after the start date/time.")
+    return starts_at, ends_at
+
+
 @admin_router.get("/admin/reservations")
 def admin_reservations(request: Request, date: str | None = None):
     pools = supabase.table("pools").select("id, name").order("name").execute().data
@@ -1081,11 +1167,14 @@ def admin_reservations(request: Request, date: str | None = None):
     day_start = datetime.combine(selected_date, datetime.min.time()).isoformat()
     day_end = datetime.combine(selected_date + timedelta(days=1), datetime.min.time()).isoformat()
 
+    # A reservation shows on this day if its window overlaps the day at all —
+    # not just when it starts here — so overnight bookings (e.g. 11 PM to
+    # noon the next day) also appear on the day they run into.
     reservations = (
         supabase.table("reservations")
         .select("id, pool_id, customer_name, customer_phone, starts_at, ends_at, price_snapshot, status")
-        .gte("starts_at", day_start)
         .lt("starts_at", day_end)
+        .gt("ends_at", day_start)
         .order("starts_at")
         .execute()
         .data
@@ -1112,6 +1201,13 @@ def admin_reservations(request: Request, date: str | None = None):
         reservation["time_range"] = format_time_range(reservation["starts_at"], reservation["ends_at"])
         reservation["paid"] = paid_by_reservation.get(reservation["id"], 0)
         reservation["remaining"] = reservation["price_snapshot"] - reservation["paid"]
+        starts_dt = datetime.fromisoformat(reservation["starts_at"])
+        ends_dt = datetime.fromisoformat(reservation["ends_at"])
+        reservation["start_date"] = starts_dt.date().isoformat()
+        reservation["start_time"] = starts_dt.strftime("%H:%M")
+        reservation["end_date"] = ends_dt.date().isoformat()
+        reservation["end_time"] = ends_dt.strftime("%H:%M")
+        reservation["phone_local"] = reservation["customer_phone"].removeprefix("+961 ")
         reservations_by_pool.setdefault(reservation["pool_id"], []).append(reservation)
 
     return templates.TemplateResponse(
@@ -1137,12 +1233,21 @@ def admin_reservations_create(
     pool_id: int = Form(...),
     customer_name: str = Form(...),
     customer_phone: str = Form(...),
-    res_date: date_cls = Form(...),
+    start_date: date_cls = Form(...),
     start_time: str = Form(...),
+    end_date: date_cls = Form(...),
     end_time: str = Form(...),
     status: str = Form("pending"),
 ):
-    day_type = "weekend" if res_date.weekday() >= 5 else "weekday"
+    try:
+        starts_at, ends_at = _parse_reservation_window(start_date, start_time, end_date, end_time)
+    except ValueError as exc:
+        return RedirectResponse(
+            url=f"/admin/reservations?date={start_date.isoformat()}&error={exc}",
+            status_code=303,
+        )
+
+    day_type = "weekend" if start_date.weekday() >= 5 else "weekday"
     pricing_rule = (
         supabase.table("pricing_rules")
         .select("price")
@@ -1154,9 +1259,6 @@ def admin_reservations_create(
     )
     price = pricing_rule[0]["price"] if pricing_rule else 0
 
-    starts_at = f"{res_date.isoformat()}T{start_time}:00"
-    ends_at = f"{res_date.isoformat()}T{end_time}:00"
-
     try:
         supabase.table("reservations").insert({
             "pool_id": pool_id,
@@ -1167,12 +1269,70 @@ def admin_reservations_create(
             "price_snapshot": price,
             "status": status,
         }).execute()
-    except APIError:
+    except APIError as exc:
+        if exc.code == "23P01":
+            error = "That pool is already booked during part of this time range. Pick a different time or pool."
+        else:
+            error = "Could not create reservation. Check the status value."
         return RedirectResponse(
-            url=f"/admin/reservations?date={res_date.isoformat()}&error=Could not create reservation. Check the status value.",
+            url=f"/admin/reservations?date={start_date.isoformat()}&error={error}",
             status_code=303,
         )
-    return RedirectResponse(url=f"/admin/reservations?date={res_date.isoformat()}", status_code=303)
+    return RedirectResponse(url=f"/admin/reservations?date={start_date.isoformat()}", status_code=303)
+
+
+@admin_router.post("/admin/reservations/{reservation_id}/edit")
+def admin_reservations_edit(
+    reservation_id: int,
+    pool_id: int = Form(...),
+    customer_name: str = Form(...),
+    customer_phone: str = Form(...),
+    start_date: date_cls = Form(...),
+    start_time: str = Form(...),
+    end_date: date_cls = Form(...),
+    end_time: str = Form(...),
+    status: str = Form(...),
+):
+    try:
+        starts_at, ends_at = _parse_reservation_window(start_date, start_time, end_date, end_time)
+    except ValueError as exc:
+        return RedirectResponse(
+            url=f"/admin/reservations?date={start_date.isoformat()}&error={exc}",
+            status_code=303,
+        )
+
+    day_type = "weekend" if start_date.weekday() >= 5 else "weekday"
+    pricing_rule = (
+        supabase.table("pricing_rules")
+        .select("price")
+        .eq("pool_id", pool_id)
+        .eq("day_type", day_type)
+        .limit(1)
+        .execute()
+        .data
+    )
+    price = pricing_rule[0]["price"] if pricing_rule else 0
+
+    try:
+        supabase.table("reservations").update({
+            "pool_id": pool_id,
+            "customer_name": customer_name,
+            "customer_phone": f"+961 {customer_phone}",
+            "starts_at": starts_at,
+            "ends_at": ends_at,
+            "price_snapshot": price,
+            "status": status,
+        }).eq("id", reservation_id).execute()
+    except APIError as exc:
+        if exc.code == "23P01":
+            error = "That pool is already booked during part of this time range. Pick a different time or pool."
+        else:
+            error = "Could not save changes. Check the status value."
+        return RedirectResponse(
+            url=f"/admin/reservations?date={start_date.isoformat()}&error={error}",
+            status_code=303,
+        )
+    return RedirectResponse(url=f"/admin/reservations?date={start_date.isoformat()}", status_code=303)
 
 
 @admin_router.post("/admin/reservations/{reservation_id}/record-payment")
@@ -1246,17 +1406,17 @@ PAYMENT_SOURCES = ["enrollment", "reservation"]
 
 
 @admin_router.get("/admin/payments")
-def admin_payments(
-    request: Request,
-    date_from: str | None = None,
-    date_to: str | None = None,
-    method: str | None = None,
-    source: str | None = None,
-):
+def admin_payments(request: Request):
     page, page_size, sort_by, sort_dir = _parse_list_params(
         request, PAYMENTS_SORTABLE, default_sort="paid_at", default_dir="desc"
     )
     column = PAYMENTS_SORTABLE[sort_by]
+
+    filters = _get_filters_cookie(request, PAYMENTS_FILTER_COOKIE)
+    date_from = filters.get("date_from")
+    date_to = filters.get("date_to")
+    method = filters.get("method")
+    source = filters.get("source")
 
     try:
         date_from = date_cls.fromisoformat(date_from).isoformat() if date_from else None
@@ -1289,6 +1449,10 @@ def admin_payments(
         return query.order(column, desc=(sort_dir == "desc")).range(start, end).execute()
 
     payments, total, page, total_pages = _fetch_page(build_query, page, page_size)
+
+    # Sum across every filtered row, not just the current page.
+    filtered_amounts = apply_filters(supabase.table("payments").select("amount")).execute().data
+    total_amount = sum(row["amount"] for row in filtered_amounts)
 
     enrollment_ids = [p["payable_id"] for p in payments if p["payable_type"] == "enrollment"]
     reservation_ids = [p["payable_id"] for p in payments if p["payable_type"] == "reservation"]
@@ -1342,8 +1506,42 @@ def admin_payments(
             "payment_methods": PAYMENT_METHODS,
             "source_filter": source or "",
             "payment_sources": PAYMENT_SOURCES,
+            "total_amount": total_amount,
         },
     )
+
+
+@admin_router.post("/admin/payments/filters")
+def admin_payments_set_filters(
+    date_from: str = Form(""),
+    date_to: str = Form(""),
+    method: str = Form(""),
+    source: str = Form(""),
+):
+    filters = {}
+    try:
+        if date_from.strip():
+            date_cls.fromisoformat(date_from.strip())
+            filters["date_from"] = date_from.strip()
+    except ValueError:
+        pass
+    try:
+        if date_to.strip():
+            date_cls.fromisoformat(date_to.strip())
+            filters["date_to"] = date_to.strip()
+    except ValueError:
+        pass
+    if method in PAYMENT_METHODS:
+        filters["method"] = method
+    if source in PAYMENT_SOURCES:
+        filters["source"] = source
+
+    return _set_filters_cookie_response("/admin/payments", PAYMENTS_FILTER_COOKIE, filters)
+
+
+@admin_router.post("/admin/payments/filters/clear")
+def admin_payments_clear_filters():
+    return _set_filters_cookie_response("/admin/payments", PAYMENTS_FILTER_COOKIE, {})
 
 
 @admin_router.get("/admin/settings")

@@ -46,6 +46,9 @@
                     {% endif %}
                 </div>
                 <div class="flex justify-end gap-2">
+                    <button class="p-2 text-on-surface-variant hover:text-primary transition-colors" onclick="document.getElementById('edit-cycle-dialog-{{ cycle.id }}').showModal()" title="Edit cycle" type="button">
+                        <span class="material-symbols-outlined">edit</span>
+                    </button>
                     <form method="post" action="/admin/cycles/{{ cycle.id }}/toggle-open">
                         <button class="p-2 text-on-surface-variant hover:text-primary transition-colors" title="{{ 'Close registration' if cycle.is_open_for_registration else 'Open registration' }}" type="submit">
                             <span class="material-symbols-outlined">{{ 'lock_open' if cycle.is_open_for_registration else 'lock' }}</span>
@@ -75,6 +78,9 @@
                     <div class="col-span-2"><span class="text-on-surface-variant/70">Price:</span> {{ "$%.2f"|format(cycle.cycle_price) if cycle.cycle_price is not none else "—" }}</div>
                 </div>
                 <div class="flex justify-end gap-2 pt-1">
+                    <button class="p-1.5 text-on-surface-variant hover:text-primary transition-colors" onclick="document.getElementById('edit-cycle-dialog-{{ cycle.id }}').showModal()" title="Edit cycle" type="button">
+                        <span class="material-symbols-outlined text-[20px]">edit</span>
+                    </button>
                     <form method="post" action="/admin/cycles/{{ cycle.id }}/toggle-open">
                         <button class="p-1.5 text-on-surface-variant hover:text-primary transition-colors" title="{{ 'Close registration' if cycle.is_open_for_registration else 'Open registration' }}" type="submit">
                             <span class="material-symbols-outlined text-[20px]">{{ 'lock_open' if cycle.is_open_for_registration else 'lock' }}</span>
@@ -87,6 +93,50 @@
                     </form>
                 </div>
             </div>
+
+            <!-- Edit Cycle Modal -->
+            <dialog id="edit-cycle-dialog-{{ cycle.id }}" class="rounded-2xl w-full max-w-md">
+                <div class="bg-surface-container-lowest w-full rounded-2xl shadow-[0px_4px_20px_rgba(11,37,69,0.08)] overflow-hidden flex flex-col">
+                    <div class="p-lg flex justify-between items-center border-b border-surface-variant">
+                        <h2 class="font-title-md text-title-md text-primary-container">Edit Cycle</h2>
+                        <button class="text-outline hover:text-primary transition-colors" onclick="document.getElementById('edit-cycle-dialog-{{ cycle.id }}').close()" type="button">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
+                    </div>
+                    <form method="post" action="/admin/cycles/{{ cycle.id }}/edit" class="p-lg space-y-lg">
+                        <div class="space-y-xs">
+                            <label class="font-label-md text-on-surface-variant ml-1">Cycle Name</label>
+                            <input class="w-full min-h-[56px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="name" required type="text" value="{{ cycle.name }}">
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+                            <div class="space-y-xs">
+                                <label class="font-label-md text-on-surface-variant ml-1">Start Date</label>
+                                <input class="w-full min-h-[56px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="start_date" required type="date" value="{{ cycle.start_date }}">
+                            </div>
+                            <div class="space-y-xs">
+                                <label class="font-label-md text-on-surface-variant ml-1">End Date</label>
+                                <input class="w-full min-h-[56px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="end_date" required type="date" value="{{ cycle.end_date }}">
+                            </div>
+                        </div>
+                        <div class="space-y-xs">
+                            <label class="font-label-md text-on-surface-variant ml-1">Cycle Price</label>
+                            <div class="relative">
+                                <span class="absolute left-lg top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
+                                <input class="w-full min-h-[56px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="0.01" name="cycle_price" required step="0.01" type="number" value="{{ cycle.cycle_price }}">
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-md pt-md">
+                            <button class="w-full min-h-[56px] bg-primary-container text-white font-bold rounded-xl active:scale-95 transition-transform hover:opacity-90 flex items-center justify-center gap-2" type="submit">
+                                <span class="material-symbols-outlined">save</span>
+                                Save Changes
+                            </button>
+                            <button class="w-full min-h-[48px] bg-transparent border border-secondary text-secondary font-semibold rounded-xl hover:bg-secondary-container transition-colors" onclick="document.getElementById('edit-cycle-dialog-{{ cycle.id }}').close()" type="button">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </dialog>
             {% else %}
             <div class="px-lg py-8 text-center font-body-md text-on-surface-variant">No cycles yet. Create one to get started.</div>
             {% endfor %}
