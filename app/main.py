@@ -2,6 +2,7 @@ import io
 import json
 import math
 import os
+import re
 from datetime import date, datetime, timedelta
 from datetime import date as date_cls
 from urllib.parse import urlencode
@@ -258,6 +259,11 @@ def register_form(request: Request):
     return templates.TemplateResponse(request, "register.html", {"open_cycles": open_cycles})
 
 
+def _strip_phone_whitespace(phone: str) -> str:
+    """Remove all whitespace from a phone number before it's stored."""
+    return re.sub(r"\s+", "", phone)
+
+
 def _upsert_registration(
     full_name: str,
     mother_name: str,
@@ -269,7 +275,7 @@ def _upsert_registration(
     cycle_price: float,
 ) -> int:
     """Create/update a participant and their enrollment for a cycle. Returns the enrollment id."""
-    formatted_phone = f"+961 {phone}"
+    formatted_phone = f"+961 {_strip_phone_whitespace(phone)}"
     existing_participant = (
         supabase.table("participants")
         .select("id")
@@ -394,7 +400,7 @@ def _clean_phone_cell(value) -> str:
         return ""
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
-    return str(value).strip()
+    return _strip_phone_whitespace(str(value).strip())
 
 
 def _parse_dob_cell(value) -> date:
@@ -871,7 +877,7 @@ def admin_participants_edit(
     supabase.table("participants").update({
         "full_name": full_name,
         "mother_name": mother_name,
-        "phone": phone,
+        "phone": _strip_phone_whitespace(phone),
         "date_of_birth": date_of_birth.isoformat(),
     }).eq("id", participant_id).execute()
     return RedirectResponse(url="/admin/participants", status_code=303)
@@ -1283,7 +1289,7 @@ def admin_reservations_create(
         supabase.table("reservations").insert({
             "pool_id": pool_id,
             "customer_name": customer_name,
-            "customer_phone": f"+961 {customer_phone}",
+            "customer_phone": f"+961 {_strip_phone_whitespace(customer_phone)}",
             "starts_at": starts_at,
             "ends_at": ends_at,
             "price_snapshot": price,
@@ -1331,7 +1337,7 @@ def admin_reservations_edit(
         supabase.table("reservations").update({
             "pool_id": pool_id,
             "customer_name": customer_name,
-            "customer_phone": f"+961 {customer_phone}",
+            "customer_phone": f"+961 {_strip_phone_whitespace(customer_phone)}",
             "starts_at": starts_at,
             "ends_at": ends_at,
             "price_snapshot": price,
