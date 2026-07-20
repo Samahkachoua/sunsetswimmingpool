@@ -24,11 +24,11 @@
     <div class="bg-white rounded-xl shadow-[0px_4px_20px_rgba(11,37,69,0.08)] overflow-hidden flex flex-col border border-outline-variant">
         {% include "admin/_page_size_bar.html" %}
         <div class="hidden md:grid grid-cols-[1.5fr_1fr_1fr_0.8fr_1fr_140px] px-lg py-2.5 border-b border-outline-variant bg-surface-container-low text-label-md font-bold text-on-surface-variant uppercase tracking-wider">
-            <div>{{ m.sort_header(request, 'Name', 'name', sort_by, sort_dir) }}</div>
-            <div>{{ m.sort_header(request, 'Date From', 'start_date', sort_by, sort_dir) }}</div>
-            <div>{{ m.sort_header(request, 'Date To', 'end_date', sort_by, sort_dir) }}</div>
-            <div>{{ m.sort_header(request, 'Price', 'cycle_price', sort_by, sort_dir) }}</div>
-            <div>{{ m.sort_header(request, 'Registration', 'is_open_for_registration', sort_by, sort_dir) }}</div>
+            <div>{{ m.sort_header('Name', 'name', sort_by, sort_dir, '/admin/cycles/sort') }}</div>
+            <div>{{ m.sort_header('Date From', 'start_date', sort_by, sort_dir, '/admin/cycles/sort') }}</div>
+            <div>{{ m.sort_header('Date To', 'end_date', sort_by, sort_dir, '/admin/cycles/sort') }}</div>
+            <div>{{ m.sort_header('Price', 'cycle_price', sort_by, sort_dir, '/admin/cycles/sort') }}</div>
+            <div>{{ m.sort_header('Registration', 'is_open_for_registration', sort_by, sort_dir, '/admin/cycles/sort') }}</div>
             <div class="text-right">Actions</div>
         </div>
         <div class="overflow-y-auto flex-1">

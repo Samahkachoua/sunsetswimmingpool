@@ -1,9 +1,13 @@
-{% macro sort_header(request, label, key, sort_by, sort_dir) -%}
+{% macro sort_header(label, key, sort_by, sort_dir, sort_action) -%}
 {% set next_dir = 'desc' if (sort_by == key and sort_dir == 'asc') else 'asc' %}
-<a class="inline-flex items-center gap-1 hover:text-primary transition-colors" href="{{ url_with(request, sort_by=key, sort_dir=next_dir, page=1) }}">
-    <span>{{ label }}</span>
-    {%- if sort_by == key %}
-    <span class="material-symbols-outlined text-[14px] leading-none">{{ 'arrow_upward' if sort_dir == 'asc' else 'arrow_downward' }}</span>
-    {%- endif %}
-</a>
+<form action="{{ sort_action }}" class="inline" method="post">
+    <input name="sort_by" type="hidden" value="{{ key }}">
+    <input name="sort_dir" type="hidden" value="{{ next_dir }}">
+    <button class="inline-flex items-center gap-1 hover:text-primary transition-colors bg-transparent border-0 p-0 m-0 cursor-pointer" type="submit">
+        <span>{{ label }}</span>
+        {%- if sort_by == key %}
+        <span class="material-symbols-outlined text-[14px] leading-none">{{ 'arrow_upward' if sort_dir == 'asc' else 'arrow_downward' }}</span>
+        {%- endif %}
+    </button>
+</form>
 {%- endmacro %}

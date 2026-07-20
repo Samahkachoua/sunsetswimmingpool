@@ -49,10 +49,10 @@
     <div class="bg-white rounded-xl shadow-[0px_4px_20px_rgba(11,37,69,0.08)] overflow-hidden flex flex-col border border-outline-variant">
         {% include "admin/_page_size_bar.html" %}
         <div class="hidden md:grid grid-cols-[1fr_80px_1fr_1fr_100px] px-lg py-2.5 border-b border-outline-variant bg-surface-container-low text-label-md font-bold text-on-surface-variant uppercase tracking-wider">
-            <div>{{ m.sort_header(request, 'Name', 'full_name', sort_by, sort_dir) }}</div>
-            <div>{{ m.sort_header(request, 'Age', 'date_of_birth', sort_by, sort_dir) }}</div>
-            <div>{{ m.sort_header(request, "Mother's Name", 'mother_name', sort_by, sort_dir) }}</div>
-            <div>{{ m.sort_header(request, 'Phone Number', 'phone', sort_by, sort_dir) }}</div>
+            <div>{{ m.sort_header('Name', 'full_name', sort_by, sort_dir, '/admin/participants/sort') }}</div>
+            <div>{{ m.sort_header('Age', 'date_of_birth', sort_by, sort_dir, '/admin/participants/sort') }}</div>
+            <div>{{ m.sort_header("Mother's Name", 'mother_name', sort_by, sort_dir, '/admin/participants/sort') }}</div>
+            <div>{{ m.sort_header('Phone Number', 'phone', sort_by, sort_dir, '/admin/participants/sort') }}</div>
             <div class="text-right">Actions</div>
         </div>
         <div class="overflow-y-auto flex-1">

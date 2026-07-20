@@ -57,8 +57,13 @@ def _parse_list_params(
     sortable_columns: dict,
     default_sort: str,
     default_dir: str = "asc",
+    sort_cookie: str | None = None,
 ) -> tuple[int, int, str, str]:
-    """Parse & whitelist page/page_size/sort_by/sort_dir from query params."""
+    """Parse & whitelist page/page_size from query params, sort_by/sort_dir from a cookie.
+
+    Sort state is kept out of the URL (like the filter cookies) so sorting doesn't
+    litter the address bar with query params.
+    """
     try:
         page = max(1, int(request.query_params.get("page", 1)))
     except ValueError:
@@ -71,11 +76,13 @@ def _parse_list_params(
     if page_size not in PAGE_SIZE_OPTIONS:
         page_size = DEFAULT_PAGE_SIZE
 
-    sort_by = request.query_params.get("sort_by", default_sort)
+    sort_state = _get_filters_cookie(request, sort_cookie) if sort_cookie else {}
+
+    sort_by = sort_state.get("sort_by", default_sort)
     if sort_by not in sortable_columns:
         sort_by = default_sort
 
-    sort_dir = request.query_params.get("sort_dir", default_dir)
+    sort_dir = sort_state.get("sort_dir", default_dir)
     if sort_dir not in ("asc", "desc"):
         sort_dir = default_dir
 
@@ -132,6 +139,11 @@ PARTICIPANTS_FILTER_COOKIE = "participants_filters"
 PAYMENTS_FILTER_COOKIE = "payments_filters"
 RESERVATIONS_FILTER_COOKIE = "reservations_filters"
 
+CYCLES_SORT_COOKIE = "cycles_sort"
+PARTICIPANTS_SORT_COOKIE = "participants_sort"
+ENROLLMENTS_SORT_COOKIE = "enrollments_sort"
+PAYMENTS_SORT_COOKIE = "payments_sort"
+
 
 def _get_filters_cookie(request: Request, cookie_name: str) -> dict:
     """Filters are kept out of the URL — read them back from a cookie instead."""
@@ -152,6 +164,15 @@ def _set_filters_cookie_response(url: str, cookie_name: str, filters: dict) -> R
     else:
         response.delete_cookie(cookie_name)
     return response
+
+
+def _sort_redirect(
+    url: str, cookie_name: str, sortable_columns: dict, sort_by: str, sort_dir: str
+) -> RedirectResponse:
+    """Validate sort_by/sort_dir and stash them in a cookie instead of the URL."""
+    if sort_by not in sortable_columns or sort_dir not in ("asc", "desc"):
+        return RedirectResponse(url=url, status_code=303)
+    return _set_filters_cookie_response(url, cookie_name, {"sort_by": sort_by, "sort_dir": sort_dir})
 
 
 def _reservations_redirect(date_iso: str, error: str | None = None) -> RedirectResponse:
@@ -644,7 +665,7 @@ CYCLES_SORTABLE = {
 @admin_router.get("/admin/cycles")
 def admin_cycles(request: Request):
     page, page_size, sort_by, sort_dir = _parse_list_params(
-        request, CYCLES_SORTABLE, default_sort="start_date", default_dir="desc"
+        request, CYCLES_SORTABLE, default_sort="start_date", default_dir="desc", sort_cookie=CYCLES_SORT_COOKIE
     )
     column = CYCLES_SORTABLE[sort_by]
 
@@ -673,6 +694,11 @@ def admin_cycles(request: Request):
             "sort_dir": sort_dir,
         },
     )
+
+
+@admin_router.post("/admin/cycles/sort")
+def admin_cycles_set_sort(sort_by: str = Form(...), sort_dir: str = Form(...)):
+    return _sort_redirect("/admin/cycles", CYCLES_SORT_COOKIE, CYCLES_SORTABLE, sort_by, sort_dir)
 
 
 @admin_router.post("/admin/cycles")
@@ -784,7 +810,11 @@ PARTICIPANTS_SORTABLE = {
 @admin_router.get("/admin/participants")
 def admin_participants(request: Request):
     page, page_size, sort_by, sort_dir = _parse_list_params(
-        request, PARTICIPANTS_SORTABLE, default_sort="full_name", default_dir="asc"
+        request,
+        PARTICIPANTS_SORTABLE,
+        default_sort="full_name",
+        default_dir="asc",
+        sort_cookie=PARTICIPANTS_SORT_COOKIE,
     )
     column = PARTICIPANTS_SORTABLE[sort_by]
 
@@ -838,6 +868,13 @@ def admin_participants(request: Request):
     )
 
 
+@admin_router.post("/admin/participants/sort")
+def admin_participants_set_sort(sort_by: str = Form(...), sort_dir: str = Form(...)):
+    return _sort_redirect(
+        "/admin/participants", PARTICIPANTS_SORT_COOKIE, PARTICIPANTS_SORTABLE, sort_by, sort_dir
+    )
+
+
 @admin_router.post("/admin/participants/filters")
 def admin_participants_set_filters(
     age_min: str = Form(""),
@@ -858,8 +895,9 @@ def admin_participants_set_filters(
         filters["full_name"] = full_name.strip()
     if mother_name.strip():
         filters["mother_name"] = mother_name.strip()
-    if phone.strip():
-        filters["phone"] = phone.strip()
+    phone_cleaned = re.sub(r"\s+", "", phone)
+    if phone_cleaned:
+        filters["phone"] = phone_cleaned
 
     return _set_filters_cookie_response("/admin/participants", PARTICIPANTS_FILTER_COOKIE, filters)
 
@@ -911,7 +949,11 @@ TIME_SLOT_PERIOD_BY_TIME_PREFERRED = {
 @admin_router.get("/admin/enrollments")
 def admin_enrollments(request: Request):
     page, page_size, sort_by, sort_dir = _parse_list_params(
-        request, ENROLLMENTS_SORTABLE, default_sort="created_at", default_dir="desc"
+        request,
+        ENROLLMENTS_SORTABLE,
+        default_sort="created_at",
+        default_dir="desc",
+        sort_cookie=ENROLLMENTS_SORT_COOKIE,
     )
     column, foreign_table = ENROLLMENTS_SORTABLE[sort_by]
 
@@ -921,7 +963,7 @@ def admin_enrollments(request: Request):
 
     select_cols = (
         "id, level, time_preferred, price, status, time_slot_id,"
-        " participants!inner(full_name, date_of_birth), time_slots(start_time, end_time)"
+        " participants!inner(full_name, mother_name, phone, date_of_birth), time_slots(start_time, end_time)"
     )
 
     def apply_filters(query):
@@ -935,6 +977,10 @@ def admin_enrollments(request: Request):
             query = query.eq("time_preferred", filters["time_preferred"])
         if filters.get("time_slot_id"):
             query = query.eq("time_slot_id", filters["time_slot_id"])
+        if filters.get("mother_name"):
+            query = query.ilike("participants.mother_name", f"%{filters['mother_name']}%")
+        if filters.get("phone"):
+            query = query.ilike("participants.phone", f"%{filters['phone']}%")
         return query
 
     def build_query(start, end):
@@ -1052,6 +1098,13 @@ def admin_enrollments(request: Request):
     )
 
 
+@admin_router.post("/admin/enrollments/sort")
+def admin_enrollments_set_sort(sort_by: str = Form(...), sort_dir: str = Form(...)):
+    return _sort_redirect(
+        "/admin/enrollments", ENROLLMENTS_SORT_COOKIE, ENROLLMENTS_SORTABLE, sort_by, sort_dir
+    )
+
+
 @admin_router.post("/admin/enrollments/filters")
 def admin_enrollments_set_filters(
     age_min: str = Form(""),
@@ -1060,6 +1113,8 @@ def admin_enrollments_set_filters(
     time_preferred: str = Form(""),
     time_slot_id: str = Form(""),
     paid_status: str = Form(""),
+    mother_name: str = Form(""),
+    phone: str = Form(""),
 ):
     filters = {}
     try:
@@ -1077,6 +1132,11 @@ def admin_enrollments_set_filters(
         filters["time_preferred"] = time_preferred
     if paid_status:
         filters["paid_status"] = paid_status
+    if mother_name.strip():
+        filters["mother_name"] = mother_name.strip()
+    phone_cleaned = re.sub(r"\s+", "", phone)
+    if phone_cleaned:
+        filters["phone"] = phone_cleaned
 
     return _set_filters_cookie_response("/admin/enrollments", ENROLLMENTS_FILTER_COOKIE, filters)
 
@@ -1428,7 +1488,7 @@ PAYMENT_SOURCES = ["enrollment", "reservation"]
 @admin_router.get("/admin/payments")
 def admin_payments(request: Request):
     page, page_size, sort_by, sort_dir = _parse_list_params(
-        request, PAYMENTS_SORTABLE, default_sort="paid_at", default_dir="desc"
+        request, PAYMENTS_SORTABLE, default_sort="paid_at", default_dir="desc", sort_cookie=PAYMENTS_SORT_COOKIE
     )
     column = PAYMENTS_SORTABLE[sort_by]
 
@@ -1529,6 +1589,11 @@ def admin_payments(request: Request):
             "total_amount": total_amount,
         },
     )
+
+
+@admin_router.post("/admin/payments/sort")
+def admin_payments_set_sort(sort_by: str = Form(...), sort_dir: str = Form(...)):
+    return _sort_redirect("/admin/payments", PAYMENTS_SORT_COOKIE, PAYMENTS_SORTABLE, sort_by, sort_dir)
 
 
 @admin_router.post("/admin/payments/filters")

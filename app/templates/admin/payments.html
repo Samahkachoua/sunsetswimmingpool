@@ -56,11 +56,11 @@
         <table class="w-full text-left border-collapse table-fixed">
             <thead>
                 <tr class="bg-surface-container-low border-b border-surface-container-high">
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[15%]">{{ m.sort_header(request, 'Source', 'payable_type', sort_by, sort_dir) }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[15%]">{{ m.sort_header('Source', 'payable_type', sort_by, sort_dir, '/admin/payments/sort') }}</th>
                     <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[30%]">For</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[15%]">{{ m.sort_header(request, 'Amount', 'amount', sort_by, sort_dir) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[20%]">{{ m.sort_header(request, 'Date', 'paid_at', sort_by, sort_dir) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[20%]">{{ m.sort_header(request, 'Method', 'method', sort_by, sort_dir) }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[15%]">{{ m.sort_header('Amount', 'amount', sort_by, sort_dir, '/admin/payments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[20%]">{{ m.sort_header('Date', 'paid_at', sort_by, sort_dir, '/admin/payments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[20%]">{{ m.sort_header('Method', 'method', sort_by, sort_dir, '/admin/payments/sort') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-surface-container-low">

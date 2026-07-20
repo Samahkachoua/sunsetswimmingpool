@@ -27,6 +27,14 @@
             <input class="block w-20 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" min="0" name="age_max" type="number" value="{{ filters.age_max if filters.age_max is not none else '' }}">
         </div>
         <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Mother's Name</label>
+            <input class="block w-44 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="mother_name" placeholder="Search mother's name" type="text" value="{{ filters.mother_name if filters.mother_name is not none else '' }}">
+        </div>
+        <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Phone Number</label>
+            <input class="block w-44 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="phone" placeholder="Search phone" type="text" value="{{ filters.phone if filters.phone is not none else '' }}">
+        </div>
+        <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Level</label>
             <select class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="level">
                 <option value="">All Levels</option>
@@ -76,14 +84,16 @@
         <table class="w-full text-left border-collapse table-fixed">
             <thead>
                 <tr class="bg-surface-container-low border-b border-surface-container-high">
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[19%]">{{ m.sort_header(request, 'Name', 'full_name', sort_by, sort_dir) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[6%]">{{ m.sort_header(request, 'Age', 'date_of_birth', sort_by, sort_dir) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[12%]">{{ m.sort_header(request, 'Level', 'level', sort_by, sort_dir) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[13%]">{{ m.sort_header(request, 'Preferred Time', 'time_preferred', sort_by, sort_dir) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[12%]">{{ m.sort_header(request, 'Time Slot', 'start_time', sort_by, sort_dir) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[11%]">{{ m.sort_header(request, 'Amount', 'price', sort_by, sort_dir) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[11%]">Paid</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[16%]">Actions</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[15%]">{{ m.sort_header('Name', 'full_name', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[13%]">Mother's Name</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[12%]">Phone Number</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[5%]">{{ m.sort_header('Age', 'date_of_birth', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[10%]">{{ m.sort_header('Level', 'level', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[10%]">{{ m.sort_header('Preferred Time', 'time_preferred', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[10%]">{{ m.sort_header('Time Slot', 'start_time', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[8%]">{{ m.sort_header('Amount', 'price', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[8%]">Paid</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[9%]">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-surface-container-low">
@@ -91,6 +101,12 @@
                 <tr class="hover:bg-surface-container-lowest transition-colors {{ 'bg-surface-container-lowest/60' if loop.index0 % 2 == 1 else '' }}">
                     <td class="px-6 py-2 overflow-hidden">
                         <p class="font-label-md text-label-md text-primary truncate text-start" title="{{ enrollment.participants.full_name }}">{{ enrollment.participants.full_name }}</p>
+                    </td>
+                    <td class="px-6 py-2 overflow-hidden">
+                        <p class="font-body-md text-body-md text-on-surface truncate text-start" title="{{ enrollment.participants.mother_name }}">{{ enrollment.participants.mother_name }}</p>
+                    </td>
+                    <td class="px-6 py-2 overflow-hidden">
+                        <p class="font-body-md text-body-md text-on-surface truncate text-start" title="{{ enrollment.participants.phone }}">{{ enrollment.participants.phone }}</p>
                     </td>
                     <td class="px-6 py-2 font-body-md text-body-md text-on-surface text-right">{{ enrollment.age }}</td>
                     <td class="px-6 py-2 overflow-hidden">
@@ -116,13 +132,13 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td class="px-6 py-8 text-center font-body-md text-on-surface-variant" colspan="8">No enrollments yet.</td>
+                    <td class="px-6 py-8 text-center font-body-md text-on-surface-variant" colspan="10">No enrollments yet.</td>
                 </tr>
                 {% endfor %}
             </tbody>
             <tfoot>
                 <tr class="bg-surface-container-low border-t-2 border-outline-variant">
-                    <td class="px-6 py-2.5" colspan="5"></td>
+                    <td class="px-6 py-2.5" colspan="7"></td>
                     <td class="px-6 py-2.5 font-label-md text-label-md text-primary text-right font-bold">${{ "%.2f"|format(total_amount) }}</td>
                     <td class="px-6 py-2.5 font-label-md text-label-md text-secondary text-right font-bold">${{ "%.2f"|format(total_paid) }}</td>
                     <td class="px-6 py-2.5"></td>
@@ -152,6 +168,8 @@
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-x-3 gap-y-1 font-body-md text-sm text-on-surface-variant">
+                <div class="col-span-2 truncate" title="{{ enrollment.participants.mother_name }}"><span class="text-on-surface-variant/70">Mother's Name:</span> {{ enrollment.participants.mother_name }}</div>
+                <div class="col-span-2 truncate" title="{{ enrollment.participants.phone }}"><span class="text-on-surface-variant/70">Phone:</span> {{ enrollment.participants.phone }}</div>
                 <div><span class="text-on-surface-variant/70">Age:</span> {{ enrollment.age }}</div>
                 <div><span class="text-on-surface-variant/70">Level:</span> {{ enrollment.level | capitalize }}</div>
                 <div><span class="text-on-surface-variant/70">Time:</span> {{ enrollment.time_preferred | capitalize }}</div>
