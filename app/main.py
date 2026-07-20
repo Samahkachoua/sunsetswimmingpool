@@ -145,6 +145,17 @@ ENROLLMENTS_SORT_COOKIE = "enrollments_sort"
 PAYMENTS_SORT_COOKIE = "payments_sort"
 
 
+def _list_redirect_url(base_path: str, page_size: str) -> str:
+    """Build a redirect target that keeps the caller's page size (resets page to 1)."""
+    try:
+        size = int(page_size)
+    except ValueError:
+        size = DEFAULT_PAGE_SIZE
+    if size not in PAGE_SIZE_OPTIONS:
+        size = DEFAULT_PAGE_SIZE
+    return f"{base_path}?page_size={size}" if size != DEFAULT_PAGE_SIZE else base_path
+
+
 def _get_filters_cookie(request: Request, cookie_name: str) -> dict:
     """Filters are kept out of the URL — read them back from a cookie instead."""
     raw = request.cookies.get(cookie_name)
@@ -697,8 +708,11 @@ def admin_cycles(request: Request):
 
 
 @admin_router.post("/admin/cycles/sort")
-def admin_cycles_set_sort(sort_by: str = Form(...), sort_dir: str = Form(...)):
-    return _sort_redirect("/admin/cycles", CYCLES_SORT_COOKIE, CYCLES_SORTABLE, sort_by, sort_dir)
+def admin_cycles_set_sort(
+    sort_by: str = Form(...), sort_dir: str = Form(...), page_size: str = Form(str(DEFAULT_PAGE_SIZE))
+):
+    url = _list_redirect_url("/admin/cycles", page_size)
+    return _sort_redirect(url, CYCLES_SORT_COOKIE, CYCLES_SORTABLE, sort_by, sort_dir)
 
 
 @admin_router.post("/admin/cycles")
@@ -869,10 +883,11 @@ def admin_participants(request: Request):
 
 
 @admin_router.post("/admin/participants/sort")
-def admin_participants_set_sort(sort_by: str = Form(...), sort_dir: str = Form(...)):
-    return _sort_redirect(
-        "/admin/participants", PARTICIPANTS_SORT_COOKIE, PARTICIPANTS_SORTABLE, sort_by, sort_dir
-    )
+def admin_participants_set_sort(
+    sort_by: str = Form(...), sort_dir: str = Form(...), page_size: str = Form(str(DEFAULT_PAGE_SIZE))
+):
+    url = _list_redirect_url("/admin/participants", page_size)
+    return _sort_redirect(url, PARTICIPANTS_SORT_COOKIE, PARTICIPANTS_SORTABLE, sort_by, sort_dir)
 
 
 @admin_router.post("/admin/participants/filters")
@@ -882,6 +897,7 @@ def admin_participants_set_filters(
     full_name: str = Form(""),
     mother_name: str = Form(""),
     phone: str = Form(""),
+    page_size: str = Form(str(DEFAULT_PAGE_SIZE)),
 ):
     filters = {}
     try:
@@ -899,12 +915,14 @@ def admin_participants_set_filters(
     if phone_cleaned:
         filters["phone"] = phone_cleaned
 
-    return _set_filters_cookie_response("/admin/participants", PARTICIPANTS_FILTER_COOKIE, filters)
+    url = _list_redirect_url("/admin/participants", page_size)
+    return _set_filters_cookie_response(url, PARTICIPANTS_FILTER_COOKIE, filters)
 
 
 @admin_router.post("/admin/participants/filters/clear")
-def admin_participants_clear_filters():
-    return _set_filters_cookie_response("/admin/participants", PARTICIPANTS_FILTER_COOKIE, {})
+def admin_participants_clear_filters(page_size: str = Form(str(DEFAULT_PAGE_SIZE))):
+    url = _list_redirect_url("/admin/participants", page_size)
+    return _set_filters_cookie_response(url, PARTICIPANTS_FILTER_COOKIE, {})
 
 
 @admin_router.post("/admin/participants/{participant_id}/edit")
@@ -1099,10 +1117,11 @@ def admin_enrollments(request: Request):
 
 
 @admin_router.post("/admin/enrollments/sort")
-def admin_enrollments_set_sort(sort_by: str = Form(...), sort_dir: str = Form(...)):
-    return _sort_redirect(
-        "/admin/enrollments", ENROLLMENTS_SORT_COOKIE, ENROLLMENTS_SORTABLE, sort_by, sort_dir
-    )
+def admin_enrollments_set_sort(
+    sort_by: str = Form(...), sort_dir: str = Form(...), page_size: str = Form(str(DEFAULT_PAGE_SIZE))
+):
+    url = _list_redirect_url("/admin/enrollments", page_size)
+    return _sort_redirect(url, ENROLLMENTS_SORT_COOKIE, ENROLLMENTS_SORTABLE, sort_by, sort_dir)
 
 
 @admin_router.post("/admin/enrollments/filters")
@@ -1115,6 +1134,7 @@ def admin_enrollments_set_filters(
     paid_status: str = Form(""),
     mother_name: str = Form(""),
     phone: str = Form(""),
+    page_size: str = Form(str(DEFAULT_PAGE_SIZE)),
 ):
     filters = {}
     try:
@@ -1138,12 +1158,14 @@ def admin_enrollments_set_filters(
     if phone_cleaned:
         filters["phone"] = phone_cleaned
 
-    return _set_filters_cookie_response("/admin/enrollments", ENROLLMENTS_FILTER_COOKIE, filters)
+    url = _list_redirect_url("/admin/enrollments", page_size)
+    return _set_filters_cookie_response(url, ENROLLMENTS_FILTER_COOKIE, filters)
 
 
 @admin_router.post("/admin/enrollments/filters/clear")
-def admin_enrollments_clear_filters():
-    return _set_filters_cookie_response("/admin/enrollments", ENROLLMENTS_FILTER_COOKIE, {})
+def admin_enrollments_clear_filters(page_size: str = Form(str(DEFAULT_PAGE_SIZE))):
+    url = _list_redirect_url("/admin/enrollments", page_size)
+    return _set_filters_cookie_response(url, ENROLLMENTS_FILTER_COOKIE, {})
 
 
 @admin_router.post("/admin/enrollments/{enrollment_id}/edit")
@@ -1592,8 +1614,11 @@ def admin_payments(request: Request):
 
 
 @admin_router.post("/admin/payments/sort")
-def admin_payments_set_sort(sort_by: str = Form(...), sort_dir: str = Form(...)):
-    return _sort_redirect("/admin/payments", PAYMENTS_SORT_COOKIE, PAYMENTS_SORTABLE, sort_by, sort_dir)
+def admin_payments_set_sort(
+    sort_by: str = Form(...), sort_dir: str = Form(...), page_size: str = Form(str(DEFAULT_PAGE_SIZE))
+):
+    url = _list_redirect_url("/admin/payments", page_size)
+    return _sort_redirect(url, PAYMENTS_SORT_COOKIE, PAYMENTS_SORTABLE, sort_by, sort_dir)
 
 
 @admin_router.post("/admin/payments/filters")
@@ -1602,6 +1627,7 @@ def admin_payments_set_filters(
     date_to: str = Form(""),
     method: str = Form(""),
     source: str = Form(""),
+    page_size: str = Form(str(DEFAULT_PAGE_SIZE)),
 ):
     filters = {}
     try:
@@ -1621,12 +1647,14 @@ def admin_payments_set_filters(
     if source in PAYMENT_SOURCES:
         filters["source"] = source
 
-    return _set_filters_cookie_response("/admin/payments", PAYMENTS_FILTER_COOKIE, filters)
+    url = _list_redirect_url("/admin/payments", page_size)
+    return _set_filters_cookie_response(url, PAYMENTS_FILTER_COOKIE, filters)
 
 
 @admin_router.post("/admin/payments/filters/clear")
-def admin_payments_clear_filters():
-    return _set_filters_cookie_response("/admin/payments", PAYMENTS_FILTER_COOKIE, {})
+def admin_payments_clear_filters(page_size: str = Form(str(DEFAULT_PAGE_SIZE))):
+    url = _list_redirect_url("/admin/payments", page_size)
+    return _set_filters_cookie_response(url, PAYMENTS_FILTER_COOKIE, {})
 
 
 @admin_router.get("/admin/settings")

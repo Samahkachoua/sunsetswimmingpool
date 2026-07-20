@@ -1,8 +1,9 @@
-{% macro sort_header(label, key, sort_by, sort_dir, sort_action) -%}
+{% macro sort_header(label, key, sort_by, sort_dir, sort_action, page_size) -%}
 {% set next_dir = 'desc' if (sort_by == key and sort_dir == 'asc') else 'asc' %}
 <form action="{{ sort_action }}" class="inline" method="post">
     <input name="sort_by" type="hidden" value="{{ key }}">
     <input name="sort_dir" type="hidden" value="{{ next_dir }}">
+    <input name="page_size" type="hidden" value="{{ page_size }}">
     <button class="inline-flex items-center gap-1 hover:text-primary transition-colors bg-transparent border-0 p-0 m-0 cursor-pointer" type="submit">
         <span>{{ label }}</span>
         {%- if sort_by == key %}
