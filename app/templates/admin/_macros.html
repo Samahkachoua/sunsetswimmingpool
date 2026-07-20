@@ -1,9 +1,8 @@
-{% macro sort_header(label, key, sort_by, sort_dir, sort_action, page_size) -%}
+{% macro sort_header(label, key, sort_by, sort_dir, sort_action) -%}
 {% set next_dir = 'desc' if (sort_by == key and sort_dir == 'asc') else 'asc' %}
 <form action="{{ sort_action }}" class="inline" method="post">
     <input name="sort_by" type="hidden" value="{{ key }}">
     <input name="sort_dir" type="hidden" value="{{ next_dir }}">
-    <input name="page_size" type="hidden" value="{{ page_size }}">
     <button class="inline-flex items-center gap-1 hover:text-primary transition-colors bg-transparent border-0 p-0 m-0 cursor-pointer" type="submit">
         <span>{{ label }}</span>
         {%- if sort_by == key %}
@@ -11,4 +10,17 @@
         {%- endif %}
     </button>
 </form>
+{%- endmacro %}
+
+{% macro export_links(base_path) -%}
+<div class="flex items-center gap-2">
+    <a class="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-xl font-label-md text-label-md hover:opacity-90 transition-all" href="{{ base_path }}/export?format=xlsx">
+        <span class="material-symbols-outlined text-[20px]">download</span>
+        Export Excel
+    </a>
+    <a class="flex items-center gap-2 px-4 py-2 bg-white border border-outline-variant text-primary rounded-xl font-label-md text-label-md hover:bg-surface-container-low transition-all" href="{{ base_path }}/export?format=csv">
+        <span class="material-symbols-outlined text-[20px]">download</span>
+        Export CSV
+    </a>
+</div>
 {%- endmacro %}

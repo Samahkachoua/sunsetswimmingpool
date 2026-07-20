@@ -1,12 +1,12 @@
 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-lg py-3 border-b border-outline-variant bg-surface-container-lowest">
-    <div class="flex items-center gap-2">
+    <form action="{{ request.url.path }}/page-size" class="flex items-center gap-2" method="post">
         <label class="font-label-md text-label-md text-on-surface-variant" for="page-size-select">Rows per page</label>
-        <select class="py-1.5 rounded-lg border border-outline-variant bg-white font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" id="page-size-select" onchange="window.location.href=this.value">
+        <select class="py-1.5 rounded-lg border border-outline-variant bg-white font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" id="page-size-select" name="page_size" onchange="this.form.submit()">
             {% for size in PAGE_SIZE_OPTIONS %}
-            <option value="{{ url_with(request, page_size=size, page=1) }}" {{ 'selected' if page_size == size }}>{{ size }}</option>
+            <option value="{{ size }}" {{ 'selected' if page_size == size }}>{{ size }}</option>
             {% endfor %}
         </select>
-    </div>
+    </form>
     <p class="font-caption text-caption text-on-surface-variant">
         {% if total == 0 %}Showing 0 of 0 records{% else %}Showing {{ (page - 1) * page_size + 1 }}–{{ [page * page_size, total] | min }} of {{ total }} records{% endif %}
     </p>

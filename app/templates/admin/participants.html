@@ -10,14 +10,16 @@
 <div class="mb-lg px-lg py-3 rounded-xl bg-error-container text-on-error-container font-body-md">{{ error }}</div>
 {% endif %}
 <section class="flex flex-col gap-md">
-    <div>
-        <h2 class="font-headline-lg text-headline-lg text-primary">Participants</h2>
-        <p class="font-body-md text-body-md text-on-surface-variant">Manage and track pool members.</p>
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="font-headline-lg text-headline-lg text-primary">Participants</h2>
+            <p class="font-body-md text-body-md text-on-surface-variant">Manage and track pool members.</p>
+        </div>
+        {{ m.export_links('/admin/participants') }}
     </div>
 
     <div class="bg-white rounded-xl border border-outline-variant shadow-[0px_4px_20px_rgba(11,37,69,0.08)] p-lg">
         <form method="post" action="/admin/participants/filters" class="flex flex-wrap items-end gap-4">
-            <input name="page_size" type="hidden" value="{{ page_size }}">
             <div class="space-y-1">
                 <label class="block font-label-md text-label-md text-on-surface-variant">Min Age</label>
                 <input class="block w-20 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" min="0" name="age_min" type="number" value="{{ age_min }}">
@@ -50,10 +52,10 @@
     <div class="bg-white rounded-xl shadow-[0px_4px_20px_rgba(11,37,69,0.08)] overflow-hidden flex flex-col border border-outline-variant">
         {% include "admin/_page_size_bar.html" %}
         <div class="hidden md:grid grid-cols-[1fr_80px_1fr_1fr_100px] px-lg py-2.5 border-b border-outline-variant bg-surface-container-low text-label-md font-bold text-on-surface-variant uppercase tracking-wider">
-            <div>{{ m.sort_header('Name', 'full_name', sort_by, sort_dir, '/admin/participants/sort', page_size) }}</div>
-            <div>{{ m.sort_header('Age', 'date_of_birth', sort_by, sort_dir, '/admin/participants/sort', page_size) }}</div>
-            <div>{{ m.sort_header("Mother's Name", 'mother_name', sort_by, sort_dir, '/admin/participants/sort', page_size) }}</div>
-            <div>{{ m.sort_header('Phone Number', 'phone', sort_by, sort_dir, '/admin/participants/sort', page_size) }}</div>
+            <div>{{ m.sort_header('Name', 'full_name', sort_by, sort_dir, '/admin/participants/sort') }}</div>
+            <div>{{ m.sort_header('Age', 'date_of_birth', sort_by, sort_dir, '/admin/participants/sort') }}</div>
+            <div>{{ m.sort_header("Mother's Name", 'mother_name', sort_by, sort_dir, '/admin/participants/sort') }}</div>
+            <div>{{ m.sort_header('Phone Number', 'phone', sort_by, sort_dir, '/admin/participants/sort') }}</div>
             <div class="text-right">Actions</div>
         </div>
         <div class="overflow-y-auto flex-1">

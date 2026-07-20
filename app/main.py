@@ -1,3 +1,4 @@
+import csv
 import io
 import json
 import math
@@ -12,6 +13,8 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Font
+from openpyxl.utils import get_column_letter
 from postgrest.exceptions import APIError
 
 from app.supabase_client import get_admin_user, sign_in_admin, supabase
@@ -58,21 +61,21 @@ def _parse_list_params(
     default_sort: str,
     default_dir: str = "asc",
     sort_cookie: str | None = None,
+    page_size_cookie: str | None = None,
 ) -> tuple[int, int, str, str]:
-    """Parse & whitelist page/page_size from query params, sort_by/sort_dir from a cookie.
+    """Parse page from query params; sort_by/sort_dir/page_size come from cookies.
 
-    Sort state is kept out of the URL (like the filter cookies) so sorting doesn't
-    litter the address bar with query params.
+    Sort and page-size state are kept out of the URL (like the filter cookies) so
+    interacting with a list doesn't litter the address bar with query params. Page
+    number stays in the URL since it's meant to be a normal, linkable location.
     """
     try:
         page = max(1, int(request.query_params.get("page", 1)))
     except ValueError:
         page = 1
 
-    try:
-        page_size = int(request.query_params.get("page_size", DEFAULT_PAGE_SIZE))
-    except ValueError:
-        page_size = DEFAULT_PAGE_SIZE
+    page_size_state = _get_filters_cookie(request, page_size_cookie) if page_size_cookie else {}
+    page_size = page_size_state.get("page_size", DEFAULT_PAGE_SIZE)
     if page_size not in PAGE_SIZE_OPTIONS:
         page_size = DEFAULT_PAGE_SIZE
 
@@ -119,6 +122,47 @@ def _fetch_page(build_query, page: int, page_size: int):
     return result.data, total, page, total_pages
 
 
+def _export_response(fmt: str, title: str, headers: list[str], rows: list[list], filename_base: str):
+    """Build a CSV or Excel download with a title row above the header row."""
+    if fmt == "csv":
+        text_buffer = io.StringIO()
+        writer = csv.writer(text_buffer)
+        writer.writerow([title])
+        writer.writerow(headers)
+        writer.writerows(rows)
+        byte_buffer = io.BytesIO(text_buffer.getvalue().encode("utf-8-sig"))
+        return StreamingResponse(
+            byte_buffer,
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{filename_base}.csv"'},
+        )
+
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Export"
+    worksheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max(len(headers), 1))
+    title_cell = worksheet.cell(row=1, column=1, value=title)
+    title_cell.font = Font(bold=True, size=14)
+    worksheet.append(headers)
+    for cell in worksheet[2]:
+        cell.font = Font(bold=True)
+    for row in rows:
+        worksheet.append(row)
+    for col_index, header in enumerate(headers, start=1):
+        values = [header] + [row[col_index - 1] for row in rows]
+        width = min(max((len(str(v)) for v in values if v is not None), default=10) + 2, 40)
+        worksheet.column_dimensions[get_column_letter(col_index)].width = width
+
+    byte_buffer = io.BytesIO()
+    workbook.save(byte_buffer)
+    byte_buffer.seek(0)
+    return StreamingResponse(
+        byte_buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename_base}.xlsx"'},
+    )
+
+
 def _age_bounds_to_dob_range(age_min: int | None, age_max: int | None):
     """Convert an inclusive age range into a (min_dob, max_dob) date_of_birth range."""
     today = date.today()
@@ -144,16 +188,10 @@ PARTICIPANTS_SORT_COOKIE = "participants_sort"
 ENROLLMENTS_SORT_COOKIE = "enrollments_sort"
 PAYMENTS_SORT_COOKIE = "payments_sort"
 
-
-def _list_redirect_url(base_path: str, page_size: str) -> str:
-    """Build a redirect target that keeps the caller's page size (resets page to 1)."""
-    try:
-        size = int(page_size)
-    except ValueError:
-        size = DEFAULT_PAGE_SIZE
-    if size not in PAGE_SIZE_OPTIONS:
-        size = DEFAULT_PAGE_SIZE
-    return f"{base_path}?page_size={size}" if size != DEFAULT_PAGE_SIZE else base_path
+CYCLES_PAGE_SIZE_COOKIE = "cycles_page_size"
+PARTICIPANTS_PAGE_SIZE_COOKIE = "participants_page_size"
+ENROLLMENTS_PAGE_SIZE_COOKIE = "enrollments_page_size"
+PAYMENTS_PAGE_SIZE_COOKIE = "payments_page_size"
 
 
 def _get_filters_cookie(request: Request, cookie_name: str) -> dict:
@@ -184,6 +222,17 @@ def _sort_redirect(
     if sort_by not in sortable_columns or sort_dir not in ("asc", "desc"):
         return RedirectResponse(url=url, status_code=303)
     return _set_filters_cookie_response(url, cookie_name, {"sort_by": sort_by, "sort_dir": sort_dir})
+
+
+def _page_size_redirect(url: str, cookie_name: str, page_size: str) -> RedirectResponse:
+    """Validate page_size and stash it in a cookie instead of the URL."""
+    try:
+        size = int(page_size)
+    except ValueError:
+        return RedirectResponse(url=url, status_code=303)
+    if size not in PAGE_SIZE_OPTIONS:
+        return RedirectResponse(url=url, status_code=303)
+    return _set_filters_cookie_response(url, cookie_name, {"page_size": size})
 
 
 def _reservations_redirect(date_iso: str, error: str | None = None) -> RedirectResponse:
@@ -676,7 +725,12 @@ CYCLES_SORTABLE = {
 @admin_router.get("/admin/cycles")
 def admin_cycles(request: Request):
     page, page_size, sort_by, sort_dir = _parse_list_params(
-        request, CYCLES_SORTABLE, default_sort="start_date", default_dir="desc", sort_cookie=CYCLES_SORT_COOKIE
+        request,
+        CYCLES_SORTABLE,
+        default_sort="start_date",
+        default_dir="desc",
+        sort_cookie=CYCLES_SORT_COOKIE,
+        page_size_cookie=CYCLES_PAGE_SIZE_COOKIE,
     )
     column = CYCLES_SORTABLE[sort_by]
 
@@ -708,11 +762,13 @@ def admin_cycles(request: Request):
 
 
 @admin_router.post("/admin/cycles/sort")
-def admin_cycles_set_sort(
-    sort_by: str = Form(...), sort_dir: str = Form(...), page_size: str = Form(str(DEFAULT_PAGE_SIZE))
-):
-    url = _list_redirect_url("/admin/cycles", page_size)
-    return _sort_redirect(url, CYCLES_SORT_COOKIE, CYCLES_SORTABLE, sort_by, sort_dir)
+def admin_cycles_set_sort(sort_by: str = Form(...), sort_dir: str = Form(...)):
+    return _sort_redirect("/admin/cycles", CYCLES_SORT_COOKIE, CYCLES_SORTABLE, sort_by, sort_dir)
+
+
+@admin_router.post("/admin/cycles/page-size")
+def admin_cycles_set_page_size(page_size: str = Form(...)):
+    return _page_size_redirect("/admin/cycles", CYCLES_PAGE_SIZE_COOKIE, page_size)
 
 
 @admin_router.post("/admin/cycles")
@@ -821,6 +877,21 @@ PARTICIPANTS_SORTABLE = {
 }
 
 
+def _participants_apply_filters(query, filters: dict):
+    min_dob, max_dob = _age_bounds_to_dob_range(filters.get("age_min"), filters.get("age_max"))
+    if min_dob is not None:
+        query = query.gte("date_of_birth", min_dob.isoformat())
+    if max_dob is not None:
+        query = query.lte("date_of_birth", max_dob.isoformat())
+    if filters.get("full_name"):
+        query = query.ilike("full_name", f"%{filters['full_name']}%")
+    if filters.get("mother_name"):
+        query = query.ilike("mother_name", f"%{filters['mother_name']}%")
+    if filters.get("phone"):
+        query = query.ilike("phone", f"%{filters['phone']}%")
+    return query
+
+
 @admin_router.get("/admin/participants")
 def admin_participants(request: Request):
     page, page_size, sort_by, sort_dir = _parse_list_params(
@@ -829,31 +900,19 @@ def admin_participants(request: Request):
         default_sort="full_name",
         default_dir="asc",
         sort_cookie=PARTICIPANTS_SORT_COOKIE,
+        page_size_cookie=PARTICIPANTS_PAGE_SIZE_COOKIE,
     )
     column = PARTICIPANTS_SORTABLE[sort_by]
 
     filters = _get_filters_cookie(request, PARTICIPANTS_FILTER_COOKIE)
-    min_dob, max_dob = _age_bounds_to_dob_range(filters.get("age_min"), filters.get("age_max"))
     full_name = filters.get("full_name")
     mother_name = filters.get("mother_name")
     phone = filters.get("phone")
 
-    def apply_filters(query):
-        if min_dob is not None:
-            query = query.gte("date_of_birth", min_dob.isoformat())
-        if max_dob is not None:
-            query = query.lte("date_of_birth", max_dob.isoformat())
-        if full_name:
-            query = query.ilike("full_name", f"%{full_name}%")
-        if mother_name:
-            query = query.ilike("mother_name", f"%{mother_name}%")
-        if phone:
-            query = query.ilike("phone", f"%{phone}%")
-        return query
-
     def build_query(start, end):
-        query = apply_filters(
-            supabase.table("participants").select("id, full_name, mother_name, phone, date_of_birth", count="exact")
+        query = _participants_apply_filters(
+            supabase.table("participants").select("id, full_name, mother_name, phone, date_of_birth", count="exact"),
+            filters,
         )
         return query.order(column, desc=(sort_dir == "desc")).range(start, end).execute()
 
@@ -882,12 +941,46 @@ def admin_participants(request: Request):
     )
 
 
+@admin_router.get("/admin/participants/export")
+def admin_participants_export(request: Request, format: str = "xlsx"):
+    _, _, sort_by, sort_dir = _parse_list_params(
+        request,
+        PARTICIPANTS_SORTABLE,
+        default_sort="full_name",
+        default_dir="asc",
+        sort_cookie=PARTICIPANTS_SORT_COOKIE,
+    )
+    column = PARTICIPANTS_SORTABLE[sort_by]
+
+    filters = _get_filters_cookie(request, PARTICIPANTS_FILTER_COOKIE)
+    query = _participants_apply_filters(
+        supabase.table("participants").select("id, full_name, mother_name, phone, date_of_birth"), filters
+    )
+    participants = query.order(column, desc=(sort_dir == "desc")).execute().data
+
+    headers = ["Full Name", "Mother's Name", "Phone Number", "Date of Birth", "Age"]
+    rows = [
+        [
+            participant["full_name"],
+            participant["mother_name"],
+            participant["phone"],
+            participant["date_of_birth"],
+            calculate_age(participant["date_of_birth"]),
+        ]
+        for participant in participants
+    ]
+    fmt = "csv" if format.lower() == "csv" else "xlsx"
+    return _export_response(fmt, "Participants", headers, rows, "participants")
+
+
 @admin_router.post("/admin/participants/sort")
-def admin_participants_set_sort(
-    sort_by: str = Form(...), sort_dir: str = Form(...), page_size: str = Form(str(DEFAULT_PAGE_SIZE))
-):
-    url = _list_redirect_url("/admin/participants", page_size)
-    return _sort_redirect(url, PARTICIPANTS_SORT_COOKIE, PARTICIPANTS_SORTABLE, sort_by, sort_dir)
+def admin_participants_set_sort(sort_by: str = Form(...), sort_dir: str = Form(...)):
+    return _sort_redirect("/admin/participants", PARTICIPANTS_SORT_COOKIE, PARTICIPANTS_SORTABLE, sort_by, sort_dir)
+
+
+@admin_router.post("/admin/participants/page-size")
+def admin_participants_set_page_size(page_size: str = Form(...)):
+    return _page_size_redirect("/admin/participants", PARTICIPANTS_PAGE_SIZE_COOKIE, page_size)
 
 
 @admin_router.post("/admin/participants/filters")
@@ -897,7 +990,6 @@ def admin_participants_set_filters(
     full_name: str = Form(""),
     mother_name: str = Form(""),
     phone: str = Form(""),
-    page_size: str = Form(str(DEFAULT_PAGE_SIZE)),
 ):
     filters = {}
     try:
@@ -915,14 +1007,12 @@ def admin_participants_set_filters(
     if phone_cleaned:
         filters["phone"] = phone_cleaned
 
-    url = _list_redirect_url("/admin/participants", page_size)
-    return _set_filters_cookie_response(url, PARTICIPANTS_FILTER_COOKIE, filters)
+    return _set_filters_cookie_response("/admin/participants", PARTICIPANTS_FILTER_COOKIE, filters)
 
 
 @admin_router.post("/admin/participants/filters/clear")
-def admin_participants_clear_filters(page_size: str = Form(str(DEFAULT_PAGE_SIZE))):
-    url = _list_redirect_url("/admin/participants", page_size)
-    return _set_filters_cookie_response(url, PARTICIPANTS_FILTER_COOKIE, {})
+def admin_participants_clear_filters():
+    return _set_filters_cookie_response("/admin/participants", PARTICIPANTS_FILTER_COOKIE, {})
 
 
 @admin_router.post("/admin/participants/{participant_id}/edit")
@@ -963,6 +1053,56 @@ TIME_SLOT_PERIOD_BY_TIME_PREFERRED = {
     "afternoon": "evening",
 }
 
+ENROLLMENTS_SELECT_COLS = (
+    "id, level, time_preferred, price, status, time_slot_id,"
+    " participants!inner(full_name, mother_name, phone, date_of_birth), time_slots(start_time, end_time)"
+)
+
+
+def _enrollments_apply_filters(query, filters: dict):
+    min_dob, max_dob = _age_bounds_to_dob_range(filters.get("age_min"), filters.get("age_max"))
+    if min_dob is not None:
+        query = query.gte("participants.date_of_birth", min_dob.isoformat())
+    if max_dob is not None:
+        query = query.lte("participants.date_of_birth", max_dob.isoformat())
+    if filters.get("level"):
+        query = query.eq("level", filters["level"])
+    if filters.get("time_preferred"):
+        query = query.eq("time_preferred", filters["time_preferred"])
+    if filters.get("time_slot_id"):
+        query = query.eq("time_slot_id", filters["time_slot_id"])
+    if filters.get("mother_name"):
+        query = query.ilike("participants.mother_name", f"%{filters['mother_name']}%")
+    if filters.get("phone"):
+        query = query.ilike("participants.phone", f"%{filters['phone']}%")
+    return query
+
+
+def _enrollments_payments_lookup(enrollment_ids: list[int]) -> dict:
+    if not enrollment_ids:
+        return {}
+    payments = (
+        supabase.table("payments")
+        .select("payable_id, amount")
+        .eq("payable_type", "enrollment")
+        .in_("payable_id", enrollment_ids)
+        .execute()
+        .data
+    )
+    lookup = {}
+    for payment in payments:
+        lookup[payment["payable_id"]] = lookup.get(payment["payable_id"], 0) + payment["amount"]
+    return lookup
+
+
+def _enrollment_paid_status(enrollment: dict, paid_lookup: dict) -> str:
+    paid = paid_lookup.get(enrollment["id"], 0)
+    if paid <= 0:
+        return "unpaid"
+    if paid < enrollment["price"]:
+        return "partial"
+    return "paid"
+
 
 @admin_router.get("/admin/enrollments")
 def admin_enrollments(request: Request):
@@ -972,37 +1112,17 @@ def admin_enrollments(request: Request):
         default_sort="created_at",
         default_dir="desc",
         sort_cookie=ENROLLMENTS_SORT_COOKIE,
+        page_size_cookie=ENROLLMENTS_PAGE_SIZE_COOKIE,
     )
     column, foreign_table = ENROLLMENTS_SORTABLE[sort_by]
 
     filters = _get_filters_cookie(request, ENROLLMENTS_FILTER_COOKIE)
-    min_dob, max_dob = _age_bounds_to_dob_range(filters.get("age_min"), filters.get("age_max"))
     paid_status_filter = filters.get("paid_status")
 
-    select_cols = (
-        "id, level, time_preferred, price, status, time_slot_id,"
-        " participants!inner(full_name, mother_name, phone, date_of_birth), time_slots(start_time, end_time)"
-    )
-
-    def apply_filters(query):
-        if min_dob is not None:
-            query = query.gte("participants.date_of_birth", min_dob.isoformat())
-        if max_dob is not None:
-            query = query.lte("participants.date_of_birth", max_dob.isoformat())
-        if filters.get("level"):
-            query = query.eq("level", filters["level"])
-        if filters.get("time_preferred"):
-            query = query.eq("time_preferred", filters["time_preferred"])
-        if filters.get("time_slot_id"):
-            query = query.eq("time_slot_id", filters["time_slot_id"])
-        if filters.get("mother_name"):
-            query = query.ilike("participants.mother_name", f"%{filters['mother_name']}%")
-        if filters.get("phone"):
-            query = query.ilike("participants.phone", f"%{filters['phone']}%")
-        return query
-
     def build_query(start, end):
-        query = apply_filters(supabase.table("enrollments").select(select_cols, count="exact"))
+        query = _enrollments_apply_filters(
+            supabase.table("enrollments").select(ENROLLMENTS_SELECT_COLS, count="exact"), filters
+        )
         return (
             query.order(column, desc=(sort_dir == "desc"), foreign_table=foreign_table)
             .range(start, end)
@@ -1011,71 +1131,35 @@ def admin_enrollments(request: Request):
 
     if not paid_status_filter:
         enrollments, total, page, total_pages = _fetch_page(build_query, page, page_size)
-        enrollment_ids = [enrollment["id"] for enrollment in enrollments]
-        paid_by_enrollment = {}
-        if enrollment_ids:
-            payments = (
-                supabase.table("payments")
-                .select("payable_id, amount")
-                .eq("payable_type", "enrollment")
-                .in_("payable_id", enrollment_ids)
-                .execute()
-                .data
-            )
-            for payment in payments:
-                paid_by_enrollment[payment["payable_id"]] = (
-                    paid_by_enrollment.get(payment["payable_id"], 0) + payment["amount"]
-                )
+        paid_by_enrollment = _enrollments_payments_lookup([enrollment["id"] for enrollment in enrollments])
 
         # Totals across every filtered row, not just the current page. Reuses
-        # select_cols (not just "id, price") because the age filter references
-        # participants.date_of_birth, which only resolves when that embed is
-        # actually present in the select clause (participants!inner(...)).
-        all_matching_rows = apply_filters(supabase.table("enrollments").select(select_cols)).execute().data
+        # ENROLLMENTS_SELECT_COLS (not just "id, price") because the age filter
+        # references participants.date_of_birth, which only resolves when that
+        # embed is actually present in the select clause (participants!inner(...)).
+        all_matching_rows = (
+            _enrollments_apply_filters(supabase.table("enrollments").select(ENROLLMENTS_SELECT_COLS), filters)
+            .execute()
+            .data
+        )
         total_amount = sum(row["price"] for row in all_matching_rows)
-        total_paid = 0.0
-        all_matching_ids = [row["id"] for row in all_matching_rows]
-        if all_matching_ids:
-            all_payments = (
-                supabase.table("payments")
-                .select("amount")
-                .eq("payable_type", "enrollment")
-                .in_("payable_id", all_matching_ids)
-                .execute()
-                .data
-            )
-            total_paid = sum(payment["amount"] for payment in all_payments)
+        all_matching_paid = _enrollments_payments_lookup([row["id"] for row in all_matching_rows])
+        total_paid = sum(all_matching_paid.values())
     else:
         # Paid status is derived from the payments table, not a real column, so it
         # can't be pushed into the enrollments query. Fetch everything matching the
         # other filters, compute paid status in Python, then paginate the result.
-        query = apply_filters(supabase.table("enrollments").select(select_cols))
+        query = _enrollments_apply_filters(supabase.table("enrollments").select(ENROLLMENTS_SELECT_COLS), filters)
         all_matching = (
             query.order(column, desc=(sort_dir == "desc"), foreign_table=foreign_table).execute().data
         )
-        all_ids = [enrollment["id"] for enrollment in all_matching]
-        paid_lookup = {}
-        if all_ids:
-            payments = (
-                supabase.table("payments")
-                .select("payable_id, amount")
-                .eq("payable_type", "enrollment")
-                .in_("payable_id", all_ids)
-                .execute()
-                .data
-            )
-            for payment in payments:
-                paid_lookup[payment["payable_id"]] = paid_lookup.get(payment["payable_id"], 0) + payment["amount"]
+        paid_lookup = _enrollments_payments_lookup([enrollment["id"] for enrollment in all_matching])
 
-        def paid_status_of(enrollment) -> str:
-            paid = paid_lookup.get(enrollment["id"], 0)
-            if paid <= 0:
-                return "unpaid"
-            if paid < enrollment["price"]:
-                return "partial"
-            return "paid"
-
-        filtered = [enrollment for enrollment in all_matching if paid_status_of(enrollment) == paid_status_filter]
+        filtered = [
+            enrollment
+            for enrollment in all_matching
+            if _enrollment_paid_status(enrollment, paid_lookup) == paid_status_filter
+        ]
         total = len(filtered)
         total_pages = max(1, math.ceil(total / page_size)) if total else 1
         page = min(max(page, 1), total_pages)
@@ -1116,12 +1200,77 @@ def admin_enrollments(request: Request):
     )
 
 
+@admin_router.get("/admin/enrollments/export")
+def admin_enrollments_export(request: Request, format: str = "xlsx"):
+    _, _, sort_by, sort_dir = _parse_list_params(
+        request,
+        ENROLLMENTS_SORTABLE,
+        default_sort="created_at",
+        default_dir="desc",
+        sort_cookie=ENROLLMENTS_SORT_COOKIE,
+    )
+    column, foreign_table = ENROLLMENTS_SORTABLE[sort_by]
+
+    filters = _get_filters_cookie(request, ENROLLMENTS_FILTER_COOKIE)
+    paid_status_filter = filters.get("paid_status")
+
+    query = _enrollments_apply_filters(supabase.table("enrollments").select(ENROLLMENTS_SELECT_COLS), filters)
+    enrollments = query.order(column, desc=(sort_dir == "desc"), foreign_table=foreign_table).execute().data
+
+    paid_lookup = _enrollments_payments_lookup([enrollment["id"] for enrollment in enrollments])
+    if paid_status_filter:
+        enrollments = [
+            enrollment
+            for enrollment in enrollments
+            if _enrollment_paid_status(enrollment, paid_lookup) == paid_status_filter
+        ]
+
+    headers = [
+        "Name",
+        "Mother's Name",
+        "Phone Number",
+        "Age",
+        "Level",
+        "Preferred Time",
+        "Time Slot",
+        "Amount",
+        "Paid",
+        "Remaining",
+        "Status",
+    ]
+    rows = []
+    for enrollment in enrollments:
+        participant = enrollment["participants"]
+        paid = paid_lookup.get(enrollment["id"], 0)
+        time_slot = enrollment.get("time_slots")
+        time_slot_label = f"{time_slot['start_time'][:5]}–{time_slot['end_time'][:5]}" if time_slot else ""
+        rows.append(
+            [
+                participant["full_name"],
+                participant["mother_name"],
+                participant["phone"],
+                calculate_age(participant["date_of_birth"]),
+                enrollment["level"].capitalize(),
+                enrollment["time_preferred"].capitalize(),
+                time_slot_label,
+                enrollment["price"],
+                paid,
+                enrollment["price"] - paid,
+                enrollment["status"].capitalize(),
+            ]
+        )
+    fmt = "csv" if format.lower() == "csv" else "xlsx"
+    return _export_response(fmt, "Enrollments", headers, rows, "enrollments")
+
+
 @admin_router.post("/admin/enrollments/sort")
-def admin_enrollments_set_sort(
-    sort_by: str = Form(...), sort_dir: str = Form(...), page_size: str = Form(str(DEFAULT_PAGE_SIZE))
-):
-    url = _list_redirect_url("/admin/enrollments", page_size)
-    return _sort_redirect(url, ENROLLMENTS_SORT_COOKIE, ENROLLMENTS_SORTABLE, sort_by, sort_dir)
+def admin_enrollments_set_sort(sort_by: str = Form(...), sort_dir: str = Form(...)):
+    return _sort_redirect("/admin/enrollments", ENROLLMENTS_SORT_COOKIE, ENROLLMENTS_SORTABLE, sort_by, sort_dir)
+
+
+@admin_router.post("/admin/enrollments/page-size")
+def admin_enrollments_set_page_size(page_size: str = Form(...)):
+    return _page_size_redirect("/admin/enrollments", ENROLLMENTS_PAGE_SIZE_COOKIE, page_size)
 
 
 @admin_router.post("/admin/enrollments/filters")
@@ -1134,7 +1283,6 @@ def admin_enrollments_set_filters(
     paid_status: str = Form(""),
     mother_name: str = Form(""),
     phone: str = Form(""),
-    page_size: str = Form(str(DEFAULT_PAGE_SIZE)),
 ):
     filters = {}
     try:
@@ -1158,14 +1306,12 @@ def admin_enrollments_set_filters(
     if phone_cleaned:
         filters["phone"] = phone_cleaned
 
-    url = _list_redirect_url("/admin/enrollments", page_size)
-    return _set_filters_cookie_response(url, ENROLLMENTS_FILTER_COOKIE, filters)
+    return _set_filters_cookie_response("/admin/enrollments", ENROLLMENTS_FILTER_COOKIE, filters)
 
 
 @admin_router.post("/admin/enrollments/filters/clear")
-def admin_enrollments_clear_filters(page_size: str = Form(str(DEFAULT_PAGE_SIZE))):
-    url = _list_redirect_url("/admin/enrollments", page_size)
-    return _set_filters_cookie_response(url, ENROLLMENTS_FILTER_COOKIE, {})
+def admin_enrollments_clear_filters():
+    return _set_filters_cookie_response("/admin/enrollments", ENROLLMENTS_FILTER_COOKIE, {})
 
 
 @admin_router.post("/admin/enrollments/{enrollment_id}/edit")
@@ -1510,7 +1656,12 @@ PAYMENT_SOURCES = ["enrollment", "reservation"]
 @admin_router.get("/admin/payments")
 def admin_payments(request: Request):
     page, page_size, sort_by, sort_dir = _parse_list_params(
-        request, PAYMENTS_SORTABLE, default_sort="paid_at", default_dir="desc", sort_cookie=PAYMENTS_SORT_COOKIE
+        request,
+        PAYMENTS_SORTABLE,
+        default_sort="paid_at",
+        default_dir="desc",
+        sort_cookie=PAYMENTS_SORT_COOKIE,
+        page_size_cookie=PAYMENTS_PAGE_SIZE_COOKIE,
     )
     column = PAYMENTS_SORTABLE[sort_by]
 
@@ -1614,11 +1765,13 @@ def admin_payments(request: Request):
 
 
 @admin_router.post("/admin/payments/sort")
-def admin_payments_set_sort(
-    sort_by: str = Form(...), sort_dir: str = Form(...), page_size: str = Form(str(DEFAULT_PAGE_SIZE))
-):
-    url = _list_redirect_url("/admin/payments", page_size)
-    return _sort_redirect(url, PAYMENTS_SORT_COOKIE, PAYMENTS_SORTABLE, sort_by, sort_dir)
+def admin_payments_set_sort(sort_by: str = Form(...), sort_dir: str = Form(...)):
+    return _sort_redirect("/admin/payments", PAYMENTS_SORT_COOKIE, PAYMENTS_SORTABLE, sort_by, sort_dir)
+
+
+@admin_router.post("/admin/payments/page-size")
+def admin_payments_set_page_size(page_size: str = Form(...)):
+    return _page_size_redirect("/admin/payments", PAYMENTS_PAGE_SIZE_COOKIE, page_size)
 
 
 @admin_router.post("/admin/payments/filters")
@@ -1627,7 +1780,6 @@ def admin_payments_set_filters(
     date_to: str = Form(""),
     method: str = Form(""),
     source: str = Form(""),
-    page_size: str = Form(str(DEFAULT_PAGE_SIZE)),
 ):
     filters = {}
     try:
@@ -1647,14 +1799,12 @@ def admin_payments_set_filters(
     if source in PAYMENT_SOURCES:
         filters["source"] = source
 
-    url = _list_redirect_url("/admin/payments", page_size)
-    return _set_filters_cookie_response(url, PAYMENTS_FILTER_COOKIE, filters)
+    return _set_filters_cookie_response("/admin/payments", PAYMENTS_FILTER_COOKIE, filters)
 
 
 @admin_router.post("/admin/payments/filters/clear")
-def admin_payments_clear_filters(page_size: str = Form(str(DEFAULT_PAGE_SIZE))):
-    url = _list_redirect_url("/admin/payments", page_size)
-    return _set_filters_cookie_response(url, PAYMENTS_FILTER_COOKIE, {})
+def admin_payments_clear_filters():
+    return _set_filters_cookie_response("/admin/payments", PAYMENTS_FILTER_COOKIE, {})
 
 
 @admin_router.get("/admin/settings")

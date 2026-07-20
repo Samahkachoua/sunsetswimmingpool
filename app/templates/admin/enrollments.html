@@ -9,16 +9,16 @@
 {% if error %}
 <div class="mb-lg px-lg py-3 rounded-xl bg-error-container text-on-error-container font-body-md">{{ error }}</div>
 {% endif %}
-<div class="flex justify-between items-center mb-lg">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-lg">
     <div>
         <h2 class="font-headline-lg text-headline-lg text-primary-container">Enrollments</h2>
         <p class="font-body-md text-body-md text-on-surface-variant">Manage and track all student registrations.</p>
     </div>
+    {{ m.export_links('/admin/enrollments') }}
 </div>
 
 <div class="bg-white rounded-xl border border-surface-container-high shadow-[0px_4px_20px_rgba(11,37,69,0.08)] p-lg mb-lg">
     <form method="post" action="/admin/enrollments/filters" class="flex flex-wrap items-end gap-4">
-        <input name="page_size" type="hidden" value="{{ page_size }}">
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Min Age</label>
             <input class="block w-20 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" min="0" name="age_min" type="number" value="{{ filters.age_min if filters.age_min is not none else '' }}">
@@ -85,14 +85,14 @@
         <table class="w-full text-left border-collapse table-fixed">
             <thead>
                 <tr class="bg-surface-container-low border-b border-surface-container-high">
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[15%]">{{ m.sort_header('Name', 'full_name', sort_by, sort_dir, '/admin/enrollments/sort', page_size) }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[15%]">{{ m.sort_header('Name', 'full_name', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
                     <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[13%]">Mother's Name</th>
                     <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[12%]">Phone Number</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[5%]">{{ m.sort_header('Age', 'date_of_birth', sort_by, sort_dir, '/admin/enrollments/sort', page_size) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[10%]">{{ m.sort_header('Level', 'level', sort_by, sort_dir, '/admin/enrollments/sort', page_size) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[10%]">{{ m.sort_header('Preferred Time', 'time_preferred', sort_by, sort_dir, '/admin/enrollments/sort', page_size) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[10%]">{{ m.sort_header('Time Slot', 'start_time', sort_by, sort_dir, '/admin/enrollments/sort', page_size) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[8%]">{{ m.sort_header('Amount', 'price', sort_by, sort_dir, '/admin/enrollments/sort', page_size) }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[5%]">{{ m.sort_header('Age', 'date_of_birth', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[10%]">{{ m.sort_header('Level', 'level', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[10%]">{{ m.sort_header('Preferred Time', 'time_preferred', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[10%]">{{ m.sort_header('Time Slot', 'start_time', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[8%]">{{ m.sort_header('Amount', 'price', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
                     <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[8%]">Paid</th>
                     <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[9%]">Actions</th>
                 </tr>

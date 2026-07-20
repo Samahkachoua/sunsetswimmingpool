@@ -15,7 +15,6 @@
 
 <div class="bg-white rounded-xl border border-surface-container-high shadow-[0px_4px_20px_rgba(11,37,69,0.08)] p-lg mb-lg">
     <form method="post" action="/admin/payments/filters" class="flex flex-wrap items-end gap-4">
-        <input name="page_size" type="hidden" value="{{ page_size }}">
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Date From</label>
             <input class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="date_from" type="date" value="{{ date_from }}">
@@ -57,11 +56,11 @@
         <table class="w-full text-left border-collapse table-fixed">
             <thead>
                 <tr class="bg-surface-container-low border-b border-surface-container-high">
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[15%]">{{ m.sort_header('Source', 'payable_type', sort_by, sort_dir, '/admin/payments/sort', page_size) }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[15%]">{{ m.sort_header('Source', 'payable_type', sort_by, sort_dir, '/admin/payments/sort') }}</th>
                     <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[30%]">For</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[15%]">{{ m.sort_header('Amount', 'amount', sort_by, sort_dir, '/admin/payments/sort', page_size) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[20%]">{{ m.sort_header('Date', 'paid_at', sort_by, sort_dir, '/admin/payments/sort', page_size) }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[20%]">{{ m.sort_header('Method', 'method', sort_by, sort_dir, '/admin/payments/sort', page_size) }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[15%]">{{ m.sort_header('Amount', 'amount', sort_by, sort_dir, '/admin/payments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[20%]">{{ m.sort_header('Date', 'paid_at', sort_by, sort_dir, '/admin/payments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[20%]">{{ m.sort_header('Method', 'method', sort_by, sort_dir, '/admin/payments/sort') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-surface-container-low">
