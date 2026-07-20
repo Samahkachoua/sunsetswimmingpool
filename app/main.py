@@ -275,7 +275,7 @@ def _upsert_registration(
     cycle_price: float,
 ) -> int:
     """Create/update a participant and their enrollment for a cycle. Returns the enrollment id."""
-    formatted_phone = f"+961 {_strip_phone_whitespace(phone)}"
+    formatted_phone = f"+961{_strip_phone_whitespace(phone)}"
     existing_participant = (
         supabase.table("participants")
         .select("id")
@@ -1227,7 +1227,7 @@ def admin_reservations(request: Request):
         reservation["start_time"] = starts_dt.strftime("%H:%M")
         reservation["end_date"] = ends_dt.date().isoformat()
         reservation["end_time"] = ends_dt.strftime("%H:%M")
-        reservation["phone_local"] = reservation["customer_phone"].removeprefix("+961 ")
+        reservation["phone_local"] = reservation["customer_phone"].removeprefix("+961").lstrip()
         reservations_by_pool.setdefault(reservation["pool_id"], []).append(reservation)
 
     return templates.TemplateResponse(
@@ -1289,7 +1289,7 @@ def admin_reservations_create(
         supabase.table("reservations").insert({
             "pool_id": pool_id,
             "customer_name": customer_name,
-            "customer_phone": f"+961 {_strip_phone_whitespace(customer_phone)}",
+            "customer_phone": f"+961{_strip_phone_whitespace(customer_phone)}",
             "starts_at": starts_at,
             "ends_at": ends_at,
             "price_snapshot": price,
@@ -1337,7 +1337,7 @@ def admin_reservations_edit(
         supabase.table("reservations").update({
             "pool_id": pool_id,
             "customer_name": customer_name,
-            "customer_phone": f"+961 {_strip_phone_whitespace(customer_phone)}",
+            "customer_phone": f"+961{_strip_phone_whitespace(customer_phone)}",
             "starts_at": starts_at,
             "ends_at": ends_at,
             "price_snapshot": price,
