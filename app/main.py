@@ -259,9 +259,12 @@ def register_form(request: Request):
     return templates.TemplateResponse(request, "register.html", {"open_cycles": open_cycles})
 
 
-def _strip_phone_whitespace(phone: str) -> str:
-    """Remove all whitespace from a phone number before it's stored."""
-    return re.sub(r"\s+", "", phone)
+def _normalize_phone(phone: str) -> str:
+    """Strip whitespace and add a leading 0 to numbers missing the trunk prefix (e.g. 3644637 -> 03644637)."""
+    cleaned = re.sub(r"\s+", "", phone)
+    if cleaned.startswith("3"):
+        cleaned = f"0{cleaned}"
+    return cleaned
 
 
 def _upsert_registration(
@@ -275,7 +278,7 @@ def _upsert_registration(
     cycle_price: float,
 ) -> int:
     """Create/update a participant and their enrollment for a cycle. Returns the enrollment id."""
-    formatted_phone = f"+961{_strip_phone_whitespace(phone)}"
+    formatted_phone = f"+961{_normalize_phone(phone)}"
     existing_participant = (
         supabase.table("participants")
         .select("id")
@@ -400,7 +403,7 @@ def _clean_phone_cell(value) -> str:
         return ""
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
-    return _strip_phone_whitespace(str(value).strip())
+    return _normalize_phone(str(value).strip())
 
 
 def _parse_dob_cell(value) -> date:
@@ -877,7 +880,7 @@ def admin_participants_edit(
     supabase.table("participants").update({
         "full_name": full_name,
         "mother_name": mother_name,
-        "phone": _strip_phone_whitespace(phone),
+        "phone": _normalize_phone(phone),
         "date_of_birth": date_of_birth.isoformat(),
     }).eq("id", participant_id).execute()
     return RedirectResponse(url="/admin/participants", status_code=303)
@@ -1289,7 +1292,7 @@ def admin_reservations_create(
         supabase.table("reservations").insert({
             "pool_id": pool_id,
             "customer_name": customer_name,
-            "customer_phone": f"+961{_strip_phone_whitespace(customer_phone)}",
+            "customer_phone": f"+961{_normalize_phone(customer_phone)}",
             "starts_at": starts_at,
             "ends_at": ends_at,
             "price_snapshot": price,
@@ -1337,7 +1340,7 @@ def admin_reservations_edit(
         supabase.table("reservations").update({
             "pool_id": pool_id,
             "customer_name": customer_name,
-            "customer_phone": f"+961{_strip_phone_whitespace(customer_phone)}",
+            "customer_phone": f"+961{_normalize_phone(customer_phone)}",
             "starts_at": starts_at,
             "ends_at": ends_at,
             "price_snapshot": price,
