@@ -1054,7 +1054,7 @@ TIME_SLOT_PERIOD_BY_TIME_PREFERRED = {
 }
 
 ENROLLMENTS_SELECT_COLS = (
-    "id, level, time_preferred, price, status, time_slot_id,"
+    "id, level, time_preferred, price, status, time_slot_id, created_at,"
     " participants!inner(full_name, mother_name, phone, date_of_birth), time_slots(start_time, end_time)"
 )
 
@@ -1104,6 +1104,28 @@ def _enrollment_paid_status(enrollment: dict, paid_lookup: dict) -> str:
     return "paid"
 
 
+def _enrollment_sort_key(column: str, foreign_table: str | None):
+    """Sort key for a joined column.
+
+    PostgREST's foreign_table order param only sorts rows *inside* an embedded
+    relationship, not the parent rows — so `.order(col, foreign_table=...)` is a
+    no-op for sorting enrollments by a participant/time_slot column. Sort those
+    columns in Python instead. `value is None` is sorted first in the tuple so
+    mixed None/str comparisons (e.g. enrollments with no time slot) never raise.
+    """
+    def key(enrollment):
+        if foreign_table == "participants":
+            value = enrollment["participants"].get(column)
+        elif foreign_table == "time_slots":
+            time_slot = enrollment.get("time_slots")
+            value = time_slot.get(column) if time_slot else None
+        else:
+            value = enrollment.get(column)
+        return (value is None, value if value is not None else "")
+
+    return key
+
+
 @admin_router.get("/admin/enrollments")
 def admin_enrollments(request: Request):
     page, page_size, sort_by, sort_dir = _parse_list_params(
@@ -1123,13 +1145,9 @@ def admin_enrollments(request: Request):
         query = _enrollments_apply_filters(
             supabase.table("enrollments").select(ENROLLMENTS_SELECT_COLS, count="exact"), filters
         )
-        return (
-            query.order(column, desc=(sort_dir == "desc"), foreign_table=foreign_table)
-            .range(start, end)
-            .execute()
-        )
+        return query.order(column, desc=(sort_dir == "desc")).range(start, end).execute()
 
-    if not paid_status_filter:
+    if not paid_status_filter and foreign_table is None:
         enrollments, total, page, total_pages = _fetch_page(build_query, page, page_size)
         paid_by_enrollment = _enrollments_payments_lookup([enrollment["id"] for enrollment in enrollments])
 
@@ -1146,20 +1164,27 @@ def admin_enrollments(request: Request):
         all_matching_paid = _enrollments_payments_lookup([row["id"] for row in all_matching_rows])
         total_paid = sum(all_matching_paid.values())
     else:
-        # Paid status is derived from the payments table, not a real column, so it
-        # can't be pushed into the enrollments query. Fetch everything matching the
-        # other filters, compute paid status in Python, then paginate the result.
+        # Two cases land here: paid_status is derived from the payments table (not
+        # a real column, so it can't be pushed into the query), and sorting by a
+        # joined participants/time_slots column (PostgREST's foreign_table order
+        # only reorders rows *inside* an embedded relationship, not the parent
+        # rows). Both require fetching everything matching the other filters,
+        # then filtering/sorting/paginating in Python.
         query = _enrollments_apply_filters(supabase.table("enrollments").select(ENROLLMENTS_SELECT_COLS), filters)
-        all_matching = (
-            query.order(column, desc=(sort_dir == "desc"), foreign_table=foreign_table).execute().data
-        )
+        all_matching = query.execute().data
         paid_lookup = _enrollments_payments_lookup([enrollment["id"] for enrollment in all_matching])
 
-        filtered = [
-            enrollment
-            for enrollment in all_matching
-            if _enrollment_paid_status(enrollment, paid_lookup) == paid_status_filter
-        ]
+        filtered = (
+            [
+                enrollment
+                for enrollment in all_matching
+                if _enrollment_paid_status(enrollment, paid_lookup) == paid_status_filter
+            ]
+            if paid_status_filter
+            else all_matching
+        )
+        filtered.sort(key=_enrollment_sort_key(column, foreign_table), reverse=(sort_dir == "desc"))
+
         total = len(filtered)
         total_pages = max(1, math.ceil(total / page_size)) if total else 1
         page = min(max(page, 1), total_pages)
@@ -1215,7 +1240,7 @@ def admin_enrollments_export(request: Request, format: str = "xlsx"):
     paid_status_filter = filters.get("paid_status")
 
     query = _enrollments_apply_filters(supabase.table("enrollments").select(ENROLLMENTS_SELECT_COLS), filters)
-    enrollments = query.order(column, desc=(sort_dir == "desc"), foreign_table=foreign_table).execute().data
+    enrollments = query.execute().data
 
     paid_lookup = _enrollments_payments_lookup([enrollment["id"] for enrollment in enrollments])
     if paid_status_filter:
@@ -1224,6 +1249,7 @@ def admin_enrollments_export(request: Request, format: str = "xlsx"):
             for enrollment in enrollments
             if _enrollment_paid_status(enrollment, paid_lookup) == paid_status_filter
         ]
+    enrollments.sort(key=_enrollment_sort_key(column, foreign_table), reverse=(sort_dir == "desc"))
 
     headers = [
         "Name",
