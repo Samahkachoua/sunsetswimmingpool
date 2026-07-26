@@ -28,6 +28,10 @@
             <input class="block w-20 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" min="0" name="age_max" type="number" value="{{ filters.age_max if filters.age_max is not none else '' }}">
         </div>
         <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Name</label>
+            <input class="block w-44 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="full_name" placeholder="Search name" type="text" value="{{ filters.full_name if filters.full_name is not none else '' }}">
+        </div>
+        <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Mother's Name</label>
             <input class="block w-44 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="mother_name" placeholder="Search mother's name" type="text" value="{{ filters.mother_name if filters.mother_name is not none else '' }}">
         </div>
@@ -57,7 +61,7 @@
             <select class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="time_slot_id">
                 <option value="">All Slots</option>
                 {% for slot in time_slots %}
-                <option value="{{ slot.id }}" {{ 'selected' if filters.time_slot_id == slot.id }}>{{ slot.start_time[:5] }}–{{ slot.end_time[:5] }}</option>
+                <option value="{{ slot.id }}" {{ 'selected' if filters.time_slot_id == slot.id }}>{{ slot.start_time | time12 }}–{{ slot.end_time | time12 }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -114,7 +118,7 @@
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-bold uppercase tracking-tighter bg-surface-container text-primary">{{ enrollment.level | capitalize }}</span>
                     </td>
                     <td class="px-6 py-2 font-body-md text-body-md text-on-surface truncate text-start">{{ enrollment.time_preferred | capitalize }}</td>
-                    <td class="px-6 py-2 font-body-md text-body-md text-on-surface-variant truncate text-start">{{ enrollment.time_slots.start_time[:5] ~ '–' ~ enrollment.time_slots.end_time[:5] if enrollment.time_slots else '—' }}</td>
+                    <td class="px-6 py-2 font-body-md text-body-md text-on-surface-variant truncate text-start">{{ (enrollment.time_slots.start_time | time12) ~ '–' ~ (enrollment.time_slots.end_time | time12) if enrollment.time_slots else '—' }}</td>
                     <td class="px-6 py-2 font-label-md text-label-md text-primary text-right">${{ "%.2f"|format(enrollment.price) }}</td>
                     <td class="px-6 py-2 font-label-md text-label-md text-right {{ 'text-secondary' if enrollment.paid > 0 else 'text-error' }}">${{ "%.2f"|format(enrollment.paid) }}</td>
                     <td class="px-6 py-2 text-right whitespace-nowrap">
@@ -174,7 +178,7 @@
                 <div><span class="text-on-surface-variant/70">Age:</span> {{ enrollment.age }}</div>
                 <div><span class="text-on-surface-variant/70">Level:</span> {{ enrollment.level | capitalize }}</div>
                 <div><span class="text-on-surface-variant/70">Time:</span> {{ enrollment.time_preferred | capitalize }}</div>
-                <div><span class="text-on-surface-variant/70">Slot:</span> {{ enrollment.time_slots.start_time[:5] ~ '–' ~ enrollment.time_slots.end_time[:5] if enrollment.time_slots else '—' }}</div>
+                <div><span class="text-on-surface-variant/70">Slot:</span> {{ (enrollment.time_slots.start_time | time12) ~ '–' ~ (enrollment.time_slots.end_time | time12) if enrollment.time_slots else '—' }}</div>
                 <div><span class="text-on-surface-variant/70">Amount:</span> ${{ "%.2f"|format(enrollment.price) }}</div>
                 <div class="{{ 'text-secondary' if enrollment.paid > 0 else 'text-error' }}"><span class="text-on-surface-variant/70">Paid:</span> ${{ "%.2f"|format(enrollment.paid) }}</div>
             </div>
@@ -220,7 +224,7 @@
                     <select class="w-full p-2.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="time_slot_id">
                         <option value="">No specific slot</option>
                         {% for slot in time_slots %}
-                        <option data-period="{{ slot.period }}" value="{{ slot.id }}" {{ 'hidden' if slot.period != ('morning' if enrollment.time_preferred == 'morning' else 'evening') else '' }} {{ 'selected' if enrollment.time_slot_id == slot.id }}>{{ slot.start_time[:5] }}–{{ slot.end_time[:5] }}</option>
+                        <option data-period="{{ slot.period }}" value="{{ slot.id }}" {{ 'hidden' if slot.period != ('morning' if enrollment.time_preferred == 'morning' else 'evening') else '' }} {{ 'selected' if enrollment.time_slot_id == slot.id }}>{{ slot.start_time | time12 }}–{{ slot.end_time | time12 }}</option>
                         {% endfor %}
                     </select>
                 </div>

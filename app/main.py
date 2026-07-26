@@ -55,6 +55,16 @@ def _short_date(value) -> str:
     return parsed.strftime("%b %d, %Y")
 
 
+def _time12(value: str) -> str:
+    """Format a "HH:MM" or "HH:MM:SS" string as 12-hour time, e.g. "9:00 AM"."""
+    if not value:
+        return "—"
+    hour, minute = (int(part) for part in value.split(":")[:2])
+    period = "AM" if hour < 12 else "PM"
+    hour_12 = hour % 12 or 12
+    return f"{hour_12}:{minute:02d} {period}"
+
+
 def _parse_list_params(
     request: Request,
     sortable_columns: dict,
@@ -247,6 +257,7 @@ def _reservations_redirect(date_iso: str, error: str | None = None) -> RedirectR
 templates.env.globals["url_with"] = _url_with
 templates.env.globals["PAGE_SIZE_OPTIONS"] = PAGE_SIZE_OPTIONS
 templates.env.filters["short_date"] = _short_date
+templates.env.filters["time12"] = _time12
 
 
 class NotAuthenticated(Exception):
@@ -1071,6 +1082,8 @@ def _enrollments_apply_filters(query, filters: dict):
         query = query.eq("time_preferred", filters["time_preferred"])
     if filters.get("time_slot_id"):
         query = query.eq("time_slot_id", filters["time_slot_id"])
+    if filters.get("full_name"):
+        query = query.ilike("participants.full_name", f"%{filters['full_name']}%")
     if filters.get("mother_name"):
         query = query.ilike("participants.mother_name", f"%{filters['mother_name']}%")
     if filters.get("phone"):
@@ -1269,7 +1282,7 @@ def admin_enrollments_export(request: Request, format: str = "xlsx"):
         participant = enrollment["participants"]
         paid = paid_lookup.get(enrollment["id"], 0)
         time_slot = enrollment.get("time_slots")
-        time_slot_label = f"{time_slot['start_time'][:5]}–{time_slot['end_time'][:5]}" if time_slot else ""
+        time_slot_label = f"{_time12(time_slot['start_time'])}–{_time12(time_slot['end_time'])}" if time_slot else ""
         rows.append(
             [
                 participant["full_name"],
@@ -1307,6 +1320,7 @@ def admin_enrollments_set_filters(
     time_preferred: str = Form(""),
     time_slot_id: str = Form(""),
     paid_status: str = Form(""),
+    full_name: str = Form(""),
     mother_name: str = Form(""),
     phone: str = Form(""),
 ):
@@ -1326,6 +1340,8 @@ def admin_enrollments_set_filters(
         filters["time_preferred"] = time_preferred
     if paid_status:
         filters["paid_status"] = paid_status
+    if full_name.strip():
+        filters["full_name"] = full_name.strip()
     if mother_name.strip():
         filters["mother_name"] = mother_name.strip()
     phone_cleaned = re.sub(r"\s+", "", phone)
