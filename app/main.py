@@ -1849,6 +1849,12 @@ def admin_payments_clear_filters():
     return _set_filters_cookie_response("/admin/payments", PAYMENTS_FILTER_COOKIE, {})
 
 
+@admin_router.post("/admin/payments/{payment_id}/delete")
+def admin_payments_delete(payment_id: int):
+    supabase.table("payments").delete().eq("id", payment_id).execute()
+    return RedirectResponse(url="/admin/payments", status_code=303)
+
+
 @admin_router.get("/admin/settings")
 def admin_settings(request: Request):
     pools = supabase.table("pools").select("id, name, capacity, is_active").order("name").execute().data

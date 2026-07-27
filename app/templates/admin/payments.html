@@ -56,11 +56,12 @@
         <table class="w-full text-left border-collapse table-fixed">
             <thead>
                 <tr class="bg-surface-container-low border-b border-surface-container-high">
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[15%]">{{ m.sort_header('Source', 'payable_type', sort_by, sort_dir, '/admin/payments/sort') }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[30%]">For</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[15%]">{{ m.sort_header('Amount', 'amount', sort_by, sort_dir, '/admin/payments/sort') }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[20%]">{{ m.sort_header('Date', 'paid_at', sort_by, sort_dir, '/admin/payments/sort') }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[20%]">{{ m.sort_header('Method', 'method', sort_by, sort_dir, '/admin/payments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[13%]">{{ m.sort_header('Source', 'payable_type', sort_by, sort_dir, '/admin/payments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[27%]">For</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[13%]">{{ m.sort_header('Amount', 'amount', sort_by, sort_dir, '/admin/payments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[18%]">{{ m.sort_header('Date', 'paid_at', sort_by, sort_dir, '/admin/payments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[18%]">{{ m.sort_header('Method', 'method', sort_by, sort_dir, '/admin/payments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[11%]">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-surface-container-low">
@@ -73,10 +74,17 @@
                     <td class="px-6 py-2 font-label-md text-label-md text-primary text-right">${{ "%.2f"|format(payment.amount) }}</td>
                     <td class="px-6 py-2 font-body-md text-body-md text-on-surface-variant text-start">{{ payment.paid_at | short_date }}</td>
                     <td class="px-6 py-2 font-body-md text-body-md text-on-surface truncate text-start">{{ payment.method | capitalize }}</td>
+                    <td class="px-6 py-2 text-right whitespace-nowrap">
+                        <form action="/admin/payments/{{ payment.id }}/delete" method="post" class="inline" onsubmit="return confirm('Delete this payment? This cannot be undone.');">
+                            <button class="p-2 text-on-surface-variant hover:text-error transition-colors" title="Delete" type="submit">
+                                <span class="material-symbols-outlined">delete</span>
+                            </button>
+                        </form>
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td class="px-6 py-8 text-center font-body-md text-on-surface-variant" colspan="5">No payments recorded yet.</td>
+                    <td class="px-6 py-8 text-center font-body-md text-on-surface-variant" colspan="6">No payments recorded yet.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -84,7 +92,7 @@
                 <tr class="bg-surface-container-low border-t-2 border-outline-variant">
                     <td class="px-6 py-2.5" colspan="2"></td>
                     <td class="px-6 py-2.5 font-label-md text-label-md text-primary text-right font-bold">${{ "%.2f"|format(total_amount) }}</td>
-                    <td class="px-6 py-2.5" colspan="2"></td>
+                    <td class="px-6 py-2.5" colspan="3"></td>
                 </tr>
             </tfoot>
         </table>
@@ -96,7 +104,14 @@
         <div class="p-lg space-y-2 {{ 'bg-surface-container-lowest/60' if loop.index0 % 2 == 1 else '' }}">
             <div class="flex items-start justify-between gap-2">
                 <p class="font-label-md text-label-md text-primary truncate" title="{{ payment.source_name }}">{{ payment.source_name or "—" }}</p>
-                <span class="shrink-0 inline-flex items-center px-3 py-1 rounded-full text-[12px] font-bold uppercase tracking-tighter {{ 'bg-secondary-container/20 text-on-secondary-container' if payment.source_label == 'Enrollment' else 'bg-primary-container/10 text-primary-container' }}">{{ payment.source_label }}</span>
+                <div class="flex items-center gap-1 shrink-0">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-bold uppercase tracking-tighter {{ 'bg-secondary-container/20 text-on-secondary-container' if payment.source_label == 'Enrollment' else 'bg-primary-container/10 text-primary-container' }}">{{ payment.source_label }}</span>
+                    <form action="/admin/payments/{{ payment.id }}/delete" method="post" class="inline" onsubmit="return confirm('Delete this payment? This cannot be undone.');">
+                        <button class="p-1.5 text-on-surface-variant hover:text-error transition-colors" title="Delete" type="submit">
+                            <span class="material-symbols-outlined text-[20px]">delete</span>
+                        </button>
+                    </form>
+                </div>
             </div>
             <div class="grid grid-cols-2 gap-x-3 gap-y-1 font-body-md text-sm text-on-surface-variant">
                 <div><span class="text-on-surface-variant/70">Amount:</span> ${{ "%.2f"|format(payment.amount) }}</div>
