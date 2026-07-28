@@ -1053,6 +1053,7 @@ ENROLLMENTS_SORTABLE = {
     "full_name": ("full_name", "participants"),
     "date_of_birth": ("date_of_birth", "participants"),
     "level": ("level", None),
+    "enrollment_type": ("enrollment_type", None),
     "time_preferred": ("time_preferred", None),
     "start_time": ("start_time", "time_slots"),
     "price": ("price", None),
@@ -1065,7 +1066,7 @@ TIME_SLOT_PERIOD_BY_TIME_PREFERRED = {
 }
 
 ENROLLMENTS_SELECT_COLS = (
-    "id, level, time_preferred, price, status, time_slot_id, created_at,"
+    "id, level, enrollment_type, time_preferred, price, status, time_slot_id, created_at,"
     " participants!inner(full_name, mother_name, phone, date_of_birth), time_slots(start_time, end_time)"
 )
 
@@ -1078,6 +1079,8 @@ def _enrollments_apply_filters(query, filters: dict):
         query = query.lte("participants.date_of_birth", max_dob.isoformat())
     if filters.get("level"):
         query = query.eq("level", filters["level"])
+    if filters.get("enrollment_type"):
+        query = query.eq("enrollment_type", filters["enrollment_type"])
     if filters.get("time_preferred"):
         query = query.eq("time_preferred", filters["time_preferred"])
     if filters.get("time_slot_id"):
@@ -1270,6 +1273,7 @@ def admin_enrollments_export(request: Request, format: str = "xlsx"):
         "Phone Number",
         "Age",
         "Level",
+        "Type",
         "Preferred Time",
         "Time Slot",
         "Amount",
@@ -1290,6 +1294,7 @@ def admin_enrollments_export(request: Request, format: str = "xlsx"):
                 participant["phone"],
                 calculate_age(participant["date_of_birth"]),
                 enrollment["level"].capitalize(),
+                enrollment["enrollment_type"].capitalize(),
                 enrollment["time_preferred"].capitalize(),
                 time_slot_label,
                 enrollment["price"],
@@ -1317,6 +1322,7 @@ def admin_enrollments_set_filters(
     age_min: str = Form(""),
     age_max: str = Form(""),
     level: str = Form(""),
+    enrollment_type: str = Form(""),
     time_preferred: str = Form(""),
     time_slot_id: str = Form(""),
     paid_status: str = Form(""),
@@ -1336,6 +1342,8 @@ def admin_enrollments_set_filters(
         pass
     if level:
         filters["level"] = level
+    if enrollment_type:
+        filters["enrollment_type"] = enrollment_type
     if time_preferred:
         filters["time_preferred"] = time_preferred
     if paid_status:
@@ -1361,6 +1369,7 @@ def admin_enrollments_edit(
     enrollment_id: int,
     time_preferred: str = Form(...),
     level: str = Form(...),
+    enrollment_type: str = Form(...),
     status: str = Form(...),
     price: float = Form(...),
     time_slot_id: str = Form(""),
@@ -1369,6 +1378,7 @@ def admin_enrollments_edit(
         supabase.table("enrollments").update({
             "time_preferred": time_preferred,
             "level": level,
+            "enrollment_type": enrollment_type,
             "status": status,
             "price": price,
             "time_slot_id": int(time_slot_id) if time_slot_id else None,

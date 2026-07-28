@@ -49,6 +49,14 @@
             </select>
         </div>
         <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Type</label>
+            <select class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="enrollment_type">
+                <option value="">All Types</option>
+                <option value="full" {{ 'selected' if filters.enrollment_type == 'full' }}>Full</option>
+                <option value="half" {{ 'selected' if filters.enrollment_type == 'half' }}>Half</option>
+            </select>
+        </div>
+        <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Preferred Time</label>
             <select class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="time_preferred">
                 <option value="">All Times</option>
@@ -89,15 +97,16 @@
         <table class="w-full text-left border-collapse table-fixed">
             <thead>
                 <tr class="bg-surface-container-low border-b border-surface-container-high">
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[15%]">{{ m.sort_header('Name', 'full_name', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[13%]">Mother's Name</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[12%]">Phone Number</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[14%]">{{ m.sort_header('Name', 'full_name', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[12%]">Mother's Name</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[11%]">Phone Number</th>
                     <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[5%]">{{ m.sort_header('Age', 'date_of_birth', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[10%]">{{ m.sort_header('Level', 'level', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[10%]">{{ m.sort_header('Preferred Time', 'time_preferred', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[10%]">{{ m.sort_header('Time Slot', 'start_time', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[8%]">{{ m.sort_header('Amount', 'price', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[8%]">Paid</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[9%]">{{ m.sort_header('Level', 'level', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[8%]">{{ m.sort_header('Type', 'enrollment_type', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[9%]">{{ m.sort_header('Preferred Time', 'time_preferred', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[9%]">{{ m.sort_header('Time Slot', 'start_time', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[7%]">{{ m.sort_header('Amount', 'price', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[7%]">Paid</th>
                     <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[9%]">Actions</th>
                 </tr>
             </thead>
@@ -116,6 +125,9 @@
                     <td class="px-6 py-2 font-body-md text-body-md text-on-surface text-right">{{ enrollment.age }}</td>
                     <td class="px-6 py-2 overflow-hidden">
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-bold uppercase tracking-tighter bg-surface-container text-primary">{{ enrollment.level | capitalize }}</span>
+                    </td>
+                    <td class="px-6 py-2 overflow-hidden">
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-bold uppercase tracking-tighter bg-secondary-container/20 text-on-secondary-container">{{ enrollment.enrollment_type | capitalize }}</span>
                     </td>
                     <td class="px-6 py-2 font-body-md text-body-md text-on-surface truncate text-start">{{ enrollment.time_preferred | capitalize }}</td>
                     <td class="px-6 py-2 font-body-md text-body-md text-on-surface-variant truncate text-start">{{ (enrollment.time_slots.start_time | time12) ~ '–' ~ (enrollment.time_slots.end_time | time12) if enrollment.time_slots else '—' }}</td>
@@ -137,13 +149,13 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td class="px-6 py-8 text-center font-body-md text-on-surface-variant" colspan="10">No enrollments yet.</td>
+                    <td class="px-6 py-8 text-center font-body-md text-on-surface-variant" colspan="11">No enrollments yet.</td>
                 </tr>
                 {% endfor %}
             </tbody>
             <tfoot>
                 <tr class="bg-surface-container-low border-t-2 border-outline-variant">
-                    <td class="px-6 py-2.5" colspan="7"></td>
+                    <td class="px-6 py-2.5" colspan="8"></td>
                     <td class="px-6 py-2.5 font-label-md text-label-md text-primary text-right font-bold">${{ "%.2f"|format(total_amount) }}</td>
                     <td class="px-6 py-2.5 font-label-md text-label-md text-secondary text-right font-bold">${{ "%.2f"|format(total_paid) }}</td>
                     <td class="px-6 py-2.5"></td>
@@ -177,6 +189,7 @@
                 <div class="col-span-2 truncate" title="{{ enrollment.participants.phone }}"><span class="text-on-surface-variant/70">Phone:</span> {{ enrollment.participants.phone }}</div>
                 <div><span class="text-on-surface-variant/70">Age:</span> {{ enrollment.age }}</div>
                 <div><span class="text-on-surface-variant/70">Level:</span> {{ enrollment.level | capitalize }}</div>
+                <div><span class="text-on-surface-variant/70">Type:</span> {{ enrollment.enrollment_type | capitalize }}</div>
                 <div><span class="text-on-surface-variant/70">Time:</span> {{ enrollment.time_preferred | capitalize }}</div>
                 <div><span class="text-on-surface-variant/70">Slot:</span> {{ (enrollment.time_slots.start_time | time12) ~ '–' ~ (enrollment.time_slots.end_time | time12) if enrollment.time_slots else '—' }}</div>
                 <div><span class="text-on-surface-variant/70">Amount:</span> ${{ "%.2f"|format(enrollment.price) }}</div>
@@ -234,6 +247,13 @@
                         <option value="beginner" {{ 'selected' if enrollment.level == 'beginner' }}>Beginner</option>
                         <option value="intermediate" {{ 'selected' if enrollment.level == 'intermediate' }}>Intermediate</option>
                         <option value="advanced" {{ 'selected' if enrollment.level == 'advanced' }}>Advanced</option>
+                    </select>
+                </div>
+                <div class="space-y-2">
+                    <label class="font-label-md text-label-md text-on-surface-variant">Type</label>
+                    <select class="w-full p-2.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="enrollment_type">
+                        <option value="full" {{ 'selected' if enrollment.enrollment_type == 'full' }}>Full</option>
+                        <option value="half" {{ 'selected' if enrollment.enrollment_type == 'half' }}>Half</option>
                     </select>
                 </div>
                 <div class="space-y-2">
