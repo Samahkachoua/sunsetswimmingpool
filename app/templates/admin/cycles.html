@@ -15,7 +15,7 @@
             <h2 class="font-headline-lg text-headline-lg text-primary">Cycles</h2>
             <p class="font-body-md text-body-md text-on-surface-variant">Manage seasonal swimming programs and registration windows.</p>
         </div>
-        <button class="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-xl font-label-md text-label-md hover:opacity-90 transition-all" onclick="document.getElementById('create-cycle-dialog').showModal()" type="button">
+        <button class="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-xl font-label-md text-label-md hover:opacity-90 transition-all" onclick="document.getElementById('create-cycle-form').reset(); document.getElementById('create-cycle-dialog').showModal()" type="button">
             <span class="material-symbols-outlined text-[20px]">add_circle</span>
             New Cycle
         </button>
@@ -106,32 +106,63 @@
                     <form method="post" action="/admin/cycles/{{ cycle.id }}/edit" class="p-lg space-y-lg">
                         <div class="space-y-xs">
                             <label class="font-label-md text-on-surface-variant ml-1">Cycle Name</label>
-                            <input class="w-full min-h-[56px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="name" required type="text" value="{{ cycle.name }}">
+                            <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="name" required type="text" value="{{ cycle.name }}">
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
                             <div class="space-y-xs">
                                 <label class="font-label-md text-on-surface-variant ml-1">Start Date</label>
-                                <input class="w-full min-h-[56px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="start_date" required type="date" value="{{ cycle.start_date }}">
+                                <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="start_date" required type="date" value="{{ cycle.start_date }}">
                             </div>
                             <div class="space-y-xs">
                                 <label class="font-label-md text-on-surface-variant ml-1">End Date</label>
-                                <input class="w-full min-h-[56px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="end_date" required type="date" value="{{ cycle.end_date }}">
+                                <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="end_date" required type="date" value="{{ cycle.end_date }}">
                             </div>
                         </div>
                         <div class="space-y-xs">
                             <label class="font-label-md text-on-surface-variant ml-1">Cycle Price</label>
                             <div class="relative">
                                 <span class="absolute left-lg top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
-                                <input class="w-full min-h-[56px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="0.01" name="cycle_price" required step="0.01" type="number" value="{{ cycle.cycle_price }}">
+                                <input class="w-full min-h-[40px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="0.01" name="cycle_price" required step="0.01" type="number" value="{{ cycle.cycle_price }}">
                             </div>
                         </div>
-                        <div class="flex flex-col gap-md pt-md">
-                            <button class="w-full min-h-[56px] bg-primary-container text-white font-bold rounded-xl active:scale-95 transition-transform hover:opacity-90 flex items-center justify-center gap-2" type="submit">
-                                <span class="material-symbols-outlined">save</span>
-                                Save Changes
-                            </button>
-                            <button class="w-full min-h-[48px] bg-transparent border border-secondary text-secondary font-semibold rounded-xl hover:bg-secondary-container transition-colors" onclick="document.getElementById('edit-cycle-dialog-{{ cycle.id }}').close()" type="button">
+                        <div class="space-y-xs">
+                            <label class="font-label-md text-on-surface-variant ml-1">Pool</label>
+                            <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="pool_id" required>
+                                <option disabled value="">Select a pool</option>
+                                {% for pool in pools %}
+                                <option value="{{ pool.id }}" {{ 'selected' if cycle.pool_id == pool.id }}>{{ pool.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="space-y-xs">
+                            <label class="font-label-md text-on-surface-variant ml-1">Recurring Schedule Days</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                {% for day_value, day_label in weekdays %}
+                                <label class="flex items-center gap-2 px-3 py-2 rounded-lg border border-outline-variant bg-white font-body-md text-sm text-on-surface whitespace-nowrap">
+                                    <input class="shrink-0 rounded border-outline-variant text-primary-container focus:ring-primary-container" name="schedule_days" type="checkbox" value="{{ day_value }}" {{ 'checked' if day_value in cycle.schedule_days }}>
+                                    {{ day_label }}
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+                            <div class="space-y-xs">
+                                <label class="font-label-md text-on-surface-variant ml-1">Schedule From</label>
+                                <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="schedule_start_time" type="time" value="{{ cycle.schedule_start_time }}">
+                            </div>
+                            <div class="space-y-xs">
+                                <label class="font-label-md text-on-surface-variant ml-1">Schedule To</label>
+                                <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="schedule_end_time" type="time" value="{{ cycle.schedule_end_time }}">
+                            </div>
+                        </div>
+                        <p class="text-xs text-on-surface-variant ml-1">Selected days show this cycle as a view-only block on the Reservations page for its pool — no payment, edit, or cancel needed.</p>
+                        <div class="flex justify-end gap-3 pt-md">
+                            <button class="px-lg py-2 bg-transparent border border-secondary text-secondary font-semibold rounded-xl hover:bg-secondary-container transition-colors" onclick="document.getElementById('edit-cycle-dialog-{{ cycle.id }}').close()" type="button">
                                 Cancel
+                            </button>
+                            <button class="px-lg py-2 bg-primary-container text-white font-bold rounded-xl active:scale-95 transition-transform hover:opacity-90 flex items-center justify-center gap-2" type="submit">
+                                <span class="material-symbols-outlined text-[18px]">save</span>
+                                Save Changes
                             </button>
                         </div>
                     </form>
@@ -154,28 +185,59 @@
                 <span class="material-symbols-outlined">close</span>
             </button>
         </div>
-        <form method="post" action="/admin/cycles" class="p-lg space-y-lg">
+        <form id="create-cycle-form" method="post" action="/admin/cycles" class="p-lg space-y-lg">
             <div class="space-y-xs">
                 <label class="font-label-md text-on-surface-variant ml-1">Cycle Name</label>
-                <input class="w-full min-h-[56px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="name" placeholder="e.g., Summer Intensive" required type="text">
+                <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="name" placeholder="e.g., Summer Intensive" required type="text">
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
                 <div class="space-y-xs">
                     <label class="font-label-md text-on-surface-variant ml-1">Start Date</label>
-                    <input class="w-full min-h-[56px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="start_date" required type="date">
+                    <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="start_date" required type="date">
                 </div>
                 <div class="space-y-xs">
                     <label class="font-label-md text-on-surface-variant ml-1">End Date</label>
-                    <input class="w-full min-h-[56px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="end_date" required type="date">
+                    <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="end_date" required type="date">
                 </div>
             </div>
             <div class="space-y-xs">
                 <label class="font-label-md text-on-surface-variant ml-1">Cycle Price</label>
                 <div class="relative">
                     <span class="absolute left-lg top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
-                    <input class="w-full min-h-[56px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="0.01" name="cycle_price" placeholder="0.00" required step="0.01" type="number">
+                    <input class="w-full min-h-[40px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="0.01" name="cycle_price" placeholder="0.00" required step="0.01" type="number">
                 </div>
             </div>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Pool</label>
+                <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="pool_id" required>
+                    <option disabled selected value="">Select a pool</option>
+                    {% for pool in pools %}
+                    <option value="{{ pool.id }}">{{ pool.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Recurring Schedule Days</label>
+                <div class="grid grid-cols-2 gap-2">
+                    {% for day_value, day_label in weekdays %}
+                    <label class="flex items-center gap-2 px-3 py-2 rounded-lg border border-outline-variant bg-white font-body-md text-sm text-on-surface whitespace-nowrap">
+                        <input class="shrink-0 rounded border-outline-variant text-primary-container focus:ring-primary-container" name="schedule_days" type="checkbox" value="{{ day_value }}">
+                        {{ day_label }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+                <div class="space-y-xs">
+                    <label class="font-label-md text-on-surface-variant ml-1">Schedule From</label>
+                    <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="schedule_start_time" type="time">
+                </div>
+                <div class="space-y-xs">
+                    <label class="font-label-md text-on-surface-variant ml-1">Schedule To</label>
+                    <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="schedule_end_time" type="time">
+                </div>
+            </div>
+            <p class="text-xs text-on-surface-variant ml-1">Selected days show this cycle as a view-only block on the Reservations page for its pool — no payment, edit, or cancel needed.</p>
             <div class="space-y-1">
                 <label class="flex items-center gap-2 font-body-md text-on-surface-variant">
                     <input class="rounded border-outline-variant text-primary-container focus:ring-primary-container" name="is_open_for_registration" type="checkbox" value="true">
@@ -183,16 +245,37 @@
                 </label>
                 <p class="text-xs text-on-surface-variant ml-1">Only one cycle can be open at a time — opening this one will automatically close any other open cycle.</p>
             </div>
-            <div class="flex flex-col gap-md pt-md">
-                <button class="w-full min-h-[56px] bg-primary-container text-white font-bold rounded-xl active:scale-95 transition-transform hover:opacity-90 flex items-center justify-center gap-2" type="submit">
-                    <span class="material-symbols-outlined">Save</span>
-                    Save Cycle
-                </button>
-                <button class="w-full min-h-[48px] bg-transparent border border-secondary text-secondary font-semibold rounded-xl hover:bg-secondary-container transition-colors" onclick="document.getElementById('create-cycle-dialog').close()" type="button">
+            <div class="flex justify-end gap-3 pt-md">
+                <button class="px-lg py-2 bg-transparent border border-secondary text-secondary font-semibold rounded-xl hover:bg-secondary-container transition-colors" onclick="document.getElementById('create-cycle-dialog').close()" type="button">
                     Cancel
+                </button>
+                <button class="px-lg py-2 bg-primary-container text-white font-bold rounded-xl active:scale-95 transition-transform hover:opacity-90 flex items-center justify-center gap-2" type="submit">
+                    <span class="material-symbols-outlined text-[18px]">save</span>
+                    Save Cycle
                 </button>
             </div>
         </form>
     </div>
 </dialog>
+
+<script>
+function wireCycleScheduleTimeSync() {
+    document.querySelectorAll('input[name="schedule_start_time"]').forEach(function (startInput) {
+        var form = startInput.closest('form');
+        var endInput = form.querySelector('input[name="schedule_end_time"]');
+        if (!endInput) return;
+        function validate() {
+            if (startInput.value && endInput.value && endInput.value <= startInput.value) {
+                endInput.setCustomValidity('Schedule "To" time must be after the "From" time.');
+            } else {
+                endInput.setCustomValidity('');
+            }
+        }
+        startInput.addEventListener('change', validate);
+        endInput.addEventListener('change', validate);
+        validate();
+    });
+}
+wireCycleScheduleTimeSync();
+</script>
 {% endblock %}

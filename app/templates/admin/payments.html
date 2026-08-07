@@ -17,15 +17,15 @@
     <form method="post" action="/admin/payments/filters" class="flex flex-wrap items-end gap-4">
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Date From</label>
-            <input class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="date_from" type="date" value="{{ date_from }}">
+            <input class="block w-40 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="date_from" type="date" value="{{ date_from }}">
         </div>
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Date To</label>
-            <input class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="date_to" type="date" value="{{ date_to }}">
+            <input class="block w-40 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="date_to" type="date" value="{{ date_to }}">
         </div>
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Method</label>
-            <select class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="method">
+            <select class="block w-40 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="method">
                 <option value="">All Methods</option>
                 {% for method_option in payment_methods %}
                 <option value="{{ method_option }}" {{ 'selected' if method_filter == method_option }}>{{ method_option | capitalize }}</option>
@@ -34,7 +34,7 @@
         </div>
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Source</label>
-            <select class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="source">
+            <select class="block w-40 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="source">
                 <option value="">All Sources</option>
                 {% for source_option in payment_sources %}
                 <option value="{{ source_option }}" {{ 'selected' if source_filter == source_option }}>{{ source_option | capitalize }}</option>

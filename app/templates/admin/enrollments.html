@@ -21,27 +21,27 @@
     <form method="post" action="/admin/enrollments/filters" class="flex flex-wrap items-end gap-4">
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Min Age</label>
-            <input class="block w-20 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" min="0" name="age_min" type="number" value="{{ filters.age_min if filters.age_min is not none else '' }}">
+            <input class="block w-20 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" min="0" name="age_min" type="number" value="{{ filters.age_min if filters.age_min is not none else '' }}">
         </div>
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Max Age</label>
-            <input class="block w-20 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" min="0" name="age_max" type="number" value="{{ filters.age_max if filters.age_max is not none else '' }}">
+            <input class="block w-20 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" min="0" name="age_max" type="number" value="{{ filters.age_max if filters.age_max is not none else '' }}">
         </div>
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Name</label>
-            <input class="block w-44 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="full_name" placeholder="Search name" type="text" value="{{ filters.full_name if filters.full_name is not none else '' }}">
+            <input class="block w-44 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="full_name" placeholder="Search name" type="text" value="{{ filters.full_name if filters.full_name is not none else '' }}">
         </div>
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Mother's Name</label>
-            <input class="block w-44 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="mother_name" placeholder="Search mother's name" type="text" value="{{ filters.mother_name if filters.mother_name is not none else '' }}">
+            <input class="block w-44 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="mother_name" placeholder="Search mother's name" type="text" value="{{ filters.mother_name if filters.mother_name is not none else '' }}">
         </div>
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Phone Number</label>
-            <input class="block w-44 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="phone" placeholder="Search phone" type="text" value="{{ filters.phone if filters.phone is not none else '' }}">
+            <input class="block w-44 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="phone" placeholder="Search phone" type="text" value="{{ filters.phone if filters.phone is not none else '' }}">
         </div>
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Level</label>
-            <select class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="level">
+            <select class="block w-40 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="level">
                 <option value="">All Levels</option>
                 <option value="beginner" {{ 'selected' if filters.level == 'beginner' }}>Beginner</option>
                 <option value="intermediate" {{ 'selected' if filters.level == 'intermediate' }}>Intermediate</option>
@@ -50,7 +50,7 @@
         </div>
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Type</label>
-            <select class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="enrollment_type">
+            <select class="block w-40 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="enrollment_type">
                 <option value="">All Types</option>
                 <option value="full" {{ 'selected' if filters.enrollment_type == 'full' }}>Full</option>
                 <option value="half" {{ 'selected' if filters.enrollment_type == 'half' }}>Half</option>
@@ -58,7 +58,7 @@
         </div>
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Preferred Time</label>
-            <select class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="time_preferred">
+            <select class="block w-40 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="time_preferred">
                 <option value="">All Times</option>
                 <option value="morning" {{ 'selected' if filters.time_preferred == 'morning' }}>Morning</option>
                 <option value="afternoon" {{ 'selected' if filters.time_preferred == 'afternoon' }}>Afternoon</option>
@@ -66,7 +66,7 @@
         </div>
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Time Slot</label>
-            <select class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="time_slot_id">
+            <select class="block w-40 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="time_slot_id">
                 <option value="">All Slots</option>
                 {% for slot in time_slots %}
                 <option value="{{ slot.id }}" {{ 'selected' if filters.time_slot_id == slot.id }}>{{ slot.start_time | time12 }}–{{ slot.end_time | time12 }}</option>
@@ -75,7 +75,7 @@
         </div>
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Paid Status</label>
-            <select class="block w-40 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="paid_status">
+            <select class="block w-40 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="paid_status">
                 <option value="">All</option>
                 <option value="unpaid" {{ 'selected' if filters.paid_status == 'unpaid' }}>Unpaid</option>
                 <option value="partial" {{ 'selected' if filters.paid_status == 'partial' }}>Partially Paid</option>
@@ -209,111 +209,119 @@
 </div>
 
 {% for enrollment in enrollments %}
-<dialog id="edit-dialog-{{ enrollment.id }}" class="rounded-xl w-full max-w-md">
-    <div class="bg-surface w-full rounded-xl shadow-md overflow-hidden border border-outline-variant">
-        <div class="p-6 border-b border-outline-variant flex justify-between items-center">
+<dialog id="edit-dialog-{{ enrollment.id }}" class="rounded-2xl w-full max-w-md">
+    <div class="bg-surface-container-lowest w-full rounded-2xl shadow-[0px_4px_20px_rgba(11,37,69,0.08)] overflow-hidden flex flex-col">
+        <div class="p-lg flex justify-between items-center border-b border-surface-variant">
             <h3 class="font-title-md text-title-md text-primary-container">Edit Enrollment Details</h3>
-            <button class="text-on-surface-variant hover:text-error transition-colors" onclick="document.getElementById('edit-dialog-{{ enrollment.id }}').close()" type="button">
+            <button class="text-outline hover:text-primary transition-colors" onclick="document.getElementById('edit-dialog-{{ enrollment.id }}').close()" type="button">
                 <span class="material-symbols-outlined">close</span>
             </button>
         </div>
-        <form method="post" action="/admin/enrollments/{{ enrollment.id }}/edit">
-            <div class="p-6 space-y-4">
-                <div class="space-y-2">
-                    <label class="font-label-md text-label-md text-on-surface-variant">Preferred Time</label>
-                    <div class="flex gap-4">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input class="text-secondary focus:ring-secondary" name="time_preferred" onchange="filterTimeSlots(this)" type="radio" value="morning" {{ 'checked' if enrollment.time_preferred == 'morning' }}>
-                            <span class="font-body-md text-body-md">Morning</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input class="text-secondary focus:ring-secondary" name="time_preferred" onchange="filterTimeSlots(this)" type="radio" value="afternoon" {{ 'checked' if enrollment.time_preferred == 'afternoon' }}>
-                            <span class="font-body-md text-body-md">Afternoon</span>
-                        </label>
-                    </div>
-                </div>
-                <div class="space-y-2">
-                    <label class="font-label-md text-label-md text-on-surface-variant">Time Slot</label>
-                    <select class="w-full p-2.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="time_slot_id">
-                        <option value="">No specific slot</option>
-                        {% for slot in time_slots %}
-                        <option data-period="{{ slot.period }}" value="{{ slot.id }}" {{ 'hidden' if slot.period != ('morning' if enrollment.time_preferred == 'morning' else 'evening') else '' }} {{ 'selected' if enrollment.time_slot_id == slot.id }}>{{ slot.start_time | time12 }}–{{ slot.end_time | time12 }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="space-y-2">
-                    <label class="font-label-md text-label-md text-on-surface-variant">Level</label>
-                    <select class="w-full p-2.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="level">
-                        <option value="beginner" {{ 'selected' if enrollment.level == 'beginner' }}>Beginner</option>
-                        <option value="intermediate" {{ 'selected' if enrollment.level == 'intermediate' }}>Intermediate</option>
-                        <option value="advanced" {{ 'selected' if enrollment.level == 'advanced' }}>Advanced</option>
-                    </select>
-                </div>
-                <div class="space-y-2">
-                    <label class="font-label-md text-label-md text-on-surface-variant">Type</label>
-                    <select class="w-full p-2.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="enrollment_type">
-                        <option value="full" {{ 'selected' if enrollment.enrollment_type == 'full' }}>Full</option>
-                        <option value="half" {{ 'selected' if enrollment.enrollment_type == 'half' }}>Half</option>
-                    </select>
-                </div>
-                <div class="space-y-2">
-                    <label class="font-label-md text-label-md text-on-surface-variant">Status</label>
-                    <select class="w-full p-2.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="status">
-                        <option value="pending" {{ 'selected' if enrollment.status == 'pending' }}>Pending</option>
-                        <option value="confirmed" {{ 'selected' if enrollment.status == 'confirmed' }}>Confirmed</option>
-                    </select>
-                </div>
-                <div class="space-y-2">
-                    <label class="font-label-md text-label-md text-on-surface-variant">Amount</label>
-                    <div class="relative">
-                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant font-body-md">$</span>
-                        <input class="w-full pl-8 pr-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" min="0" name="price" required step="0.01" type="number" value="{{ enrollment.price }}">
-                    </div>
+        <form method="post" action="/admin/enrollments/{{ enrollment.id }}/edit" class="p-lg space-y-lg">
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Preferred Time</label>
+                <div class="flex gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input class="text-secondary focus:ring-secondary" name="time_preferred" onchange="filterTimeSlots(this)" type="radio" value="morning" {{ 'checked' if enrollment.time_preferred == 'morning' }}>
+                        <span class="font-body-md text-body-md">Morning</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input class="text-secondary focus:ring-secondary" name="time_preferred" onchange="filterTimeSlots(this)" type="radio" value="afternoon" {{ 'checked' if enrollment.time_preferred == 'afternoon' }}>
+                        <span class="font-body-md text-body-md">Afternoon</span>
+                    </label>
                 </div>
             </div>
-            <div class="p-6 bg-surface-container-low flex justify-end gap-3">
-                <button class="px-6 py-2.5 rounded-xl font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high transition-all border border-outline-variant" onclick="document.getElementById('edit-dialog-{{ enrollment.id }}').close()" type="button">Cancel</button>
-                <button class="px-6 py-2.5 rounded-xl font-label-md text-label-md bg-primary-container text-white hover:opacity-90 transition-all shadow-sm" type="submit">Save Changes</button>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Time Slot</label>
+                <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="time_slot_id">
+                    <option value="">No specific slot</option>
+                    {% for slot in time_slots %}
+                    <option data-period="{{ slot.period }}" value="{{ slot.id }}" {{ 'hidden' if slot.period != ('morning' if enrollment.time_preferred == 'morning' else 'evening') else '' }} {{ 'selected' if enrollment.time_slot_id == slot.id }}>{{ slot.start_time | time12 }}–{{ slot.end_time | time12 }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Level</label>
+                <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="level">
+                    <option value="beginner" {{ 'selected' if enrollment.level == 'beginner' }}>Beginner</option>
+                    <option value="intermediate" {{ 'selected' if enrollment.level == 'intermediate' }}>Intermediate</option>
+                    <option value="advanced" {{ 'selected' if enrollment.level == 'advanced' }}>Advanced</option>
+                </select>
+            </div>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Type</label>
+                <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="enrollment_type">
+                    <option value="full" {{ 'selected' if enrollment.enrollment_type == 'full' }}>Full</option>
+                    <option value="half" {{ 'selected' if enrollment.enrollment_type == 'half' }}>Half</option>
+                </select>
+            </div>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Status</label>
+                <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="status">
+                    <option value="pending" {{ 'selected' if enrollment.status == 'pending' }}>Pending</option>
+                    <option value="confirmed" {{ 'selected' if enrollment.status == 'confirmed' }}>Confirmed</option>
+                </select>
+            </div>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Amount</label>
+                <div class="relative">
+                    <span class="absolute left-lg top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
+                    <input class="w-full min-h-[40px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="0" name="price" required step="0.01" type="number" value="{{ enrollment.price }}">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 pt-md">
+                <button class="px-lg py-2 bg-transparent border border-secondary text-secondary font-semibold rounded-xl hover:bg-secondary-container transition-colors" onclick="document.getElementById('edit-dialog-{{ enrollment.id }}').close()" type="button">
+                    Cancel
+                </button>
+                <button class="px-lg py-2 bg-primary-container text-white font-bold rounded-xl active:scale-95 transition-transform hover:opacity-90 flex items-center justify-center gap-2" type="submit">
+                    <span class="material-symbols-outlined text-[18px]">save</span>
+                    Save Changes
+                </button>
             </div>
         </form>
     </div>
 </dialog>
 
-<dialog id="payment-dialog-{{ enrollment.id }}" class="rounded-xl w-full max-w-md">
-    <div class="bg-[#FAF9F6] w-full rounded-xl shadow-md overflow-hidden">
-        <div class="flex items-center justify-between p-lg border-b border-outline-variant">
+<dialog id="payment-dialog-{{ enrollment.id }}" class="rounded-2xl w-full max-w-md">
+    <div class="bg-surface-container-lowest w-full rounded-2xl shadow-[0px_4px_20px_rgba(11,37,69,0.08)] overflow-hidden flex flex-col">
+        <div class="p-lg flex justify-between items-center border-b border-surface-variant">
             <h3 class="font-title-md text-title-md text-primary-container">Record Payment</h3>
-            <button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-1 rounded-full transition-colors" onclick="document.getElementById('payment-dialog-{{ enrollment.id }}').close()" type="button">close</button>
+            <button class="text-outline hover:text-primary transition-colors" onclick="document.getElementById('payment-dialog-{{ enrollment.id }}').close()" type="button">
+                <span class="material-symbols-outlined">close</span>
+            </button>
         </div>
-        <form method="post" action="/admin/enrollments/{{ enrollment.id }}/record-payment">
-            <div class="p-lg space-y-lg">
-                <div class="space-y-2">
-                    <label class="font-label-md text-label-md text-on-surface-variant">Payment Amount</label>
-                    <div class="relative">
-                        <span class="absolute left-4 top-1/2 -translate-y-1/2 font-label-md text-on-surface-variant">$</span>
-                        <input class="w-full pl-8 pr-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-secondary text-body-md font-body-md outline-none" max="{{ enrollment.remaining }}" min="0.01" name="amount" placeholder="0.00" required step="0.01" type="number">
-                    </div>
-                    <p class="font-caption text-caption text-on-surface-variant">Remaining balance: ${{ "%.2f"|format(enrollment.remaining) }}</p>
+        <form method="post" action="/admin/enrollments/{{ enrollment.id }}/record-payment" class="p-lg space-y-lg">
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Payment Amount</label>
+                <div class="relative">
+                    <span class="absolute left-lg top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
+                    <input class="w-full min-h-[40px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" max="{{ enrollment.remaining }}" min="0.01" name="amount" placeholder="0.00" required step="0.01" type="number">
                 </div>
-                <div class="space-y-2">
-                    <label class="font-label-md text-label-md text-on-surface-variant">Payment Date</label>
-                    <input class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-secondary text-body-md font-body-md outline-none" name="paid_at" required type="date" value="{{ today_iso }}">
-                </div>
-                <div class="space-y-2">
-                    <label class="font-label-md text-label-md text-on-surface-variant">Method</label>
-                    <select class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-secondary text-body-md font-body-md outline-none" name="method">
-                        <option value="cash">Cash</option>
-                        <option value="whish">Whish</option>
-                    </select>
-                </div>
-                <div class="space-y-2">
-                    <label class="font-label-md text-label-md text-on-surface-variant">Note</label>
-                    <textarea class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-secondary text-body-md font-body-md outline-none min-h-[100px]" name="notes" placeholder="Add additional details..."></textarea>
-                </div>
+                <p class="text-xs text-on-surface-variant ml-1">Remaining balance: ${{ "%.2f"|format(enrollment.remaining) }}</p>
             </div>
-            <div class="p-lg bg-surface-container-lowest flex items-center justify-end gap-3">
-                <button class="px-6 py-2.5 rounded-xl font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low transition-all" onclick="document.getElementById('payment-dialog-{{ enrollment.id }}').close()" type="button">Cancel</button>
-                <button class="px-6 py-2.5 rounded-xl font-label-md text-label-md bg-[#0B2545] text-white shadow-sm hover:opacity-90 transition-all" type="submit">Save Payment</button>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Payment Date</label>
+                <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="paid_at" required type="date" value="{{ today_iso }}">
+            </div>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Method</label>
+                <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="method">
+                    <option value="cash">Cash</option>
+                    <option value="whish">Whish</option>
+                </select>
+            </div>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Note</label>
+                <textarea class="w-full px-lg py-2 rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface min-h-[100px]" name="notes" placeholder="Add additional details..."></textarea>
+            </div>
+            <div class="flex justify-end gap-3 pt-md">
+                <button class="px-lg py-2 bg-transparent border border-secondary text-secondary font-semibold rounded-xl hover:bg-secondary-container transition-colors" onclick="document.getElementById('payment-dialog-{{ enrollment.id }}').close()" type="button">
+                    Cancel
+                </button>
+                <button class="px-lg py-2 bg-primary-container text-white font-bold rounded-xl active:scale-95 transition-transform hover:opacity-90 flex items-center justify-center gap-2" type="submit">
+                    <span class="material-symbols-outlined text-[18px]">save</span>
+                    Save Payment
+                </button>
             </div>
         </form>
     </div>

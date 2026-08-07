@@ -22,23 +22,23 @@
         <form method="post" action="/admin/participants/filters" class="flex flex-wrap items-end gap-4">
             <div class="space-y-1">
                 <label class="block font-label-md text-label-md text-on-surface-variant">Min Age</label>
-                <input class="block w-20 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" min="0" name="age_min" type="number" value="{{ age_min }}">
+                <input class="block w-20 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" min="0" name="age_min" type="number" value="{{ age_min }}">
             </div>
             <div class="space-y-1">
                 <label class="block font-label-md text-label-md text-on-surface-variant">Max Age</label>
-                <input class="block w-20 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" min="0" name="age_max" type="number" value="{{ age_max }}">
+                <input class="block w-20 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" min="0" name="age_max" type="number" value="{{ age_max }}">
             </div>
             <div class="space-y-1">
                 <label class="block font-label-md text-label-md text-on-surface-variant">Name</label>
-                <input class="block w-44 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="full_name" placeholder="Search name" type="text" value="{{ full_name_filter }}">
+                <input class="block w-44 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="full_name" placeholder="Search name" type="text" value="{{ full_name_filter }}">
             </div>
             <div class="space-y-1">
                 <label class="block font-label-md text-label-md text-on-surface-variant">Mother's Name</label>
-                <input class="block w-44 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="mother_name" placeholder="Search mother's name" type="text" value="{{ mother_name_filter }}">
+                <input class="block w-44 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="mother_name" placeholder="Search mother's name" type="text" value="{{ mother_name_filter }}">
             </div>
             <div class="space-y-1">
                 <label class="block font-label-md text-label-md text-on-surface-variant">Phone Number</label>
-                <input class="block w-44 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="phone" placeholder="Search phone" type="text" value="{{ phone_filter }}">
+                <input class="block w-44 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="phone" placeholder="Search phone" type="text" value="{{ phone_filter }}">
             </div>
             <div class="flex items-center gap-2">
                 <button class="px-lg py-2 bg-primary-container text-white rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity" type="submit">Apply Filters</button>
@@ -99,34 +99,39 @@
                 </div>
             </div>
 
-            <dialog id="edit-dialog-{{ participant.id }}" class="rounded-xl w-full max-w-md">
-                <div class="bg-surface-container-lowest w-full rounded-xl shadow-2xl overflow-hidden border border-outline-variant">
-                    <div class="p-lg border-b border-outline-variant flex justify-between items-center">
-                        <h3 class="font-title-md text-title-md text-primary">Edit Participant</h3>
-                        <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" onclick="document.getElementById('edit-dialog-{{ participant.id }}').close()" type="button">close</button>
+            <dialog id="edit-dialog-{{ participant.id }}" class="rounded-2xl w-full max-w-md">
+                <div class="bg-surface-container-lowest w-full rounded-2xl shadow-[0px_4px_20px_rgba(11,37,69,0.08)] overflow-hidden flex flex-col">
+                    <div class="p-lg flex justify-between items-center border-b border-surface-variant">
+                        <h3 class="font-title-md text-title-md text-primary-container">Edit Participant</h3>
+                        <button class="text-outline hover:text-primary transition-colors" onclick="document.getElementById('edit-dialog-{{ participant.id }}').close()" type="button">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
                     </div>
-                    <form method="post" action="/admin/participants/{{ participant.id }}/edit">
-                        <div class="p-lg space-y-4">
-                            <div class="space-y-1">
-                                <label class="font-label-md text-label-md text-on-surface-variant">Full Name</label>
-                                <input class="w-full px-4 py-2 bg-surface-container-low border border-outline-variant rounded-lg focus:ring-2 focus:ring-secondary/50 font-body-md" name="full_name" required type="text" value="{{ participant.full_name }}">
-                            </div>
-                            <div class="space-y-1">
-                                <label class="font-label-md text-label-md text-on-surface-variant">Date of Birth</label>
-                                <input class="w-full px-4 py-2 bg-surface-container-low border border-outline-variant rounded-lg focus:ring-2 focus:ring-secondary/50 font-body-md" name="date_of_birth" required type="date" value="{{ participant.date_of_birth }}">
-                            </div>
-                            <div class="space-y-1">
-                                <label class="font-label-md text-label-md text-on-surface-variant">Mother's Name</label>
-                                <input class="w-full px-4 py-2 bg-surface-container-low border border-outline-variant rounded-lg focus:ring-2 focus:ring-secondary/50 font-body-md" name="mother_name" required type="text" value="{{ participant.mother_name }}">
-                            </div>
-                            <div class="space-y-1">
-                                <label class="font-label-md text-label-md text-on-surface-variant">Phone Number</label>
-                                <input class="w-full px-4 py-2 bg-surface-container-low border border-outline-variant rounded-lg focus:ring-2 focus:ring-secondary/50 font-body-md" name="phone" required type="tel" value="{{ participant.phone }}">
-                            </div>
+                    <form method="post" action="/admin/participants/{{ participant.id }}/edit" class="p-lg space-y-lg">
+                        <div class="space-y-xs">
+                            <label class="font-label-md text-on-surface-variant ml-1">Full Name</label>
+                            <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="full_name" required type="text" value="{{ participant.full_name }}">
                         </div>
-                        <div class="p-lg bg-surface-container-low flex gap-3 justify-end">
-                            <button class="px-lg py-2 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container transition-colors" onclick="document.getElementById('edit-dialog-{{ participant.id }}').close()" type="button">Cancel</button>
-                            <button class="px-lg py-2 bg-primary-container text-white rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity" type="submit">Save Changes</button>
+                        <div class="space-y-xs">
+                            <label class="font-label-md text-on-surface-variant ml-1">Date of Birth</label>
+                            <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="date_of_birth" required type="date" value="{{ participant.date_of_birth }}">
+                        </div>
+                        <div class="space-y-xs">
+                            <label class="font-label-md text-on-surface-variant ml-1">Mother's Name</label>
+                            <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="mother_name" required type="text" value="{{ participant.mother_name }}">
+                        </div>
+                        <div class="space-y-xs">
+                            <label class="font-label-md text-on-surface-variant ml-1">Phone Number</label>
+                            <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="phone" required type="tel" value="{{ participant.phone }}">
+                        </div>
+                        <div class="flex justify-end gap-3 pt-md">
+                            <button class="px-lg py-2 bg-transparent border border-secondary text-secondary font-semibold rounded-xl hover:bg-secondary-container transition-colors" onclick="document.getElementById('edit-dialog-{{ participant.id }}').close()" type="button">
+                                Cancel
+                            </button>
+                            <button class="px-lg py-2 bg-primary-container text-white font-bold rounded-xl active:scale-95 transition-transform hover:opacity-90 flex items-center justify-center gap-2" type="submit">
+                                <span class="material-symbols-outlined text-[18px]">save</span>
+                                Save Changes
+                            </button>
                         </div>
                     </form>
                 </div>

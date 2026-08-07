@@ -733,6 +733,17 @@ CYCLES_SORTABLE = {
 }
 
 
+CYCLE_WEEKDAYS = [
+    (0, "Monday"),
+    (1, "Tuesday"),
+    (2, "Wednesday"),
+    (3, "Thursday"),
+    (4, "Friday"),
+    (5, "Saturday"),
+    (6, "Sunday"),
+]
+
+
 @admin_router.get("/admin/cycles")
 def admin_cycles(request: Request):
     page, page_size, sort_by, sort_dir = _parse_list_params(
@@ -748,19 +759,26 @@ def admin_cycles(request: Request):
     def build_query(start, end):
         return (
             supabase.table("cycles")
-            .select("id, name, start_date, end_date, cycle_price, is_open_for_registration", count="exact")
+            .select(
+                "id, name, start_date, end_date, cycle_price, is_open_for_registration, "
+                "pool_id, schedule_days, schedule_start_time, schedule_end_time, pools(name)",
+                count="exact",
+            )
             .order(column, desc=(sort_dir == "desc"))
             .range(start, end)
             .execute()
         )
 
     cycles, total, page, total_pages = _fetch_page(build_query, page, page_size)
+    pools = supabase.table("pools").select("id, name").order("name").execute().data
 
     return templates.TemplateResponse(
         request,
         "admin/cycles.html",
         {
             "cycles": cycles,
+            "pools": pools,
+            "weekdays": CYCLE_WEEKDAYS,
             "error": request.query_params.get("error"),
             "page": page,
             "page_size": page_size,
@@ -782,14 +800,41 @@ def admin_cycles_set_page_size(page_size: str = Form(...)):
     return _page_size_redirect("/admin/cycles", CYCLES_PAGE_SIZE_COOKIE, page_size)
 
 
+def _parse_cycle_schedule(
+    pool_id: int, schedule_days: list[int], schedule_start_time: str, schedule_end_time: str
+) -> dict:
+    """Build the cycle-schedule columns, requiring a consistent time window whenever days are picked."""
+    days = sorted(set(schedule_days))
+    if any(day < 0 or day > 6 for day in days):
+        raise ValueError("Invalid day selected.")
+    if days and (not schedule_start_time or not schedule_end_time):
+        raise ValueError("Pick a start and end time for the cycle's schedule.")
+    if days and schedule_end_time <= schedule_start_time:
+        raise ValueError("Schedule end time must be after the start time.")
+    return {
+        "pool_id": pool_id,
+        "schedule_days": days,
+        "schedule_start_time": schedule_start_time if days else None,
+        "schedule_end_time": schedule_end_time if days else None,
+    }
+
+
 @admin_router.post("/admin/cycles")
 def admin_cycles_create(
     name: str = Form(...),
     start_date: date = Form(...),
     end_date: date = Form(...),
     cycle_price: float = Form(...),
+    pool_id: int = Form(...),
+    schedule_days: list[int] = Form([]),
+    schedule_start_time: str = Form(""),
+    schedule_end_time: str = Form(""),
     is_open_for_registration: bool = Form(False),
 ):
+    try:
+        schedule = _parse_cycle_schedule(pool_id, schedule_days, schedule_start_time, schedule_end_time)
+    except ValueError as exc:
+        return RedirectResponse(url=f"/admin/cycles?error={exc}", status_code=303)
     if is_open_for_registration:
         _close_all_open_cycles()
     try:
@@ -799,6 +844,7 @@ def admin_cycles_create(
             "end_date": end_date.isoformat(),
             "cycle_price": cycle_price,
             "is_open_for_registration": is_open_for_registration,
+            **schedule,
         }).execute()
     except APIError as exc:
         if exc.code == "23P01":
@@ -818,13 +864,22 @@ def admin_cycles_edit(
     start_date: date = Form(...),
     end_date: date = Form(...),
     cycle_price: float = Form(...),
+    pool_id: int = Form(...),
+    schedule_days: list[int] = Form([]),
+    schedule_start_time: str = Form(""),
+    schedule_end_time: str = Form(""),
 ):
+    try:
+        schedule = _parse_cycle_schedule(pool_id, schedule_days, schedule_start_time, schedule_end_time)
+    except ValueError as exc:
+        return RedirectResponse(url=f"/admin/cycles?error={exc}", status_code=303)
     try:
         supabase.table("cycles").update({
             "name": name,
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
             "cycle_price": cycle_price,
+            **schedule,
         }).eq("id", cycle_id).execute()
     except APIError as exc:
         if exc.code == "23P01":
@@ -1451,9 +1506,47 @@ def _parse_reservation_window(
     return starts_at, ends_at
 
 
+def _find_conflicting_cycle(pool_id: int, starts_at: str, ends_at: str) -> dict | None:
+    """Find an active recurring cycle on this pool whose scheduled days/time overlap the reservation window."""
+    start_dt = datetime.fromisoformat(starts_at)
+    end_dt = datetime.fromisoformat(ends_at)
+    cycles = (
+        supabase.table("cycles")
+        .select("id, name, schedule_days, schedule_start_time, schedule_end_time")
+        .eq("pool_id", pool_id)
+        .lte("start_date", end_dt.date().isoformat())
+        .gte("end_date", start_dt.date().isoformat())
+        .execute()
+        .data
+    )
+    day = start_dt.date()
+    while day <= end_dt.date():
+        for cycle in cycles:
+            if day.weekday() not in cycle["schedule_days"]:
+                continue
+            if not cycle["schedule_start_time"] or not cycle["schedule_end_time"]:
+                continue
+            cycle_start = datetime.fromisoformat(f"{day.isoformat()}T{cycle['schedule_start_time']}")
+            cycle_end = datetime.fromisoformat(f"{day.isoformat()}T{cycle['schedule_end_time']}")
+            if start_dt < cycle_end and end_dt > cycle_start:
+                return cycle
+        day += timedelta(days=1)
+    return None
+
+
 @admin_router.get("/admin/reservations")
 def admin_reservations(request: Request):
     pools = supabase.table("pools").select("id, name").order("name").execute().data
+    extra_charge_rules = (
+        supabase.table("pricing_rules").select("pool_id, day_type, extra_charge").execute().data
+    )
+    extra_charges_by_pool: dict[int, dict[str, float]] = {}
+    for rule in extra_charge_rules:
+        extra_charges_by_pool.setdefault(rule["pool_id"], {})[rule["day_type"]] = rule["extra_charge"]
+    for pool in pools:
+        pool["weekday_extra_charge"] = extra_charges_by_pool.get(pool["id"], {}).get("weekday", 0)
+        pool["weekend_extra_charge"] = extra_charges_by_pool.get(pool["id"], {}).get("weekend", 0)
+
     filters = _get_filters_cookie(request, RESERVATIONS_FILTER_COOKIE)
     try:
         selected_date = date_cls.fromisoformat(filters.get("date", ""))
@@ -1475,7 +1568,10 @@ def admin_reservations(request: Request):
     # noon the next day) also appear on the day they run into.
     reservations = (
         supabase.table("reservations")
-        .select("id, pool_id, customer_name, customer_phone, starts_at, ends_at, price_snapshot, status")
+        .select(
+            "id, pool_id, customer_name, customer_phone, starts_at, ends_at, "
+            "price_snapshot, base_price, extra_charge_applied, extra_charge_amount, status"
+        )
         .lt("starts_at", day_end)
         .gt("ends_at", day_start)
         .order("starts_at")
@@ -1501,6 +1597,7 @@ def admin_reservations(request: Request):
 
     reservations_by_pool: dict[int, list] = {}
     for reservation in reservations:
+        reservation["is_cycle"] = False
         reservation["time_range"] = format_time_range(reservation["starts_at"], reservation["ends_at"])
         reservation["paid"] = paid_by_reservation.get(reservation["id"], 0)
         reservation["remaining"] = reservation["price_snapshot"] - reservation["paid"]
@@ -1512,6 +1609,36 @@ def admin_reservations(request: Request):
         reservation["end_time"] = ends_dt.strftime("%H:%M")
         reservation["phone_local"] = reservation["customer_phone"].removeprefix("+961").lstrip()
         reservations_by_pool.setdefault(reservation["pool_id"], []).append(reservation)
+
+    # Cycles with a matching recurring schedule show up as read-only blocks
+    # alongside real reservations for their pool on days they run.
+    cycles_today = (
+        supabase.table("cycles")
+        .select("id, name, pool_id, schedule_start_time, schedule_end_time")
+        .lte("start_date", selected_date.isoformat())
+        .gte("end_date", selected_date.isoformat())
+        .contains("schedule_days", [str(selected_date.weekday())])
+        .execute()
+        .data
+    )
+    for cycle in cycles_today:
+        if cycle["pool_id"] is None or not cycle["schedule_start_time"] or not cycle["schedule_end_time"]:
+            continue
+        start_time = cycle["schedule_start_time"][:5]
+        end_time = cycle["schedule_end_time"][:5]
+        reservations_by_pool.setdefault(cycle["pool_id"], []).append({
+            "is_cycle": True,
+            "cycle_name": cycle["name"],
+            "start_time": start_time,
+            "end_time": end_time,
+            "time_range": format_time_range(
+                f"{selected_date.isoformat()}T{start_time}:00",
+                f"{selected_date.isoformat()}T{end_time}:00",
+            ),
+        })
+
+    for pool_reservations in reservations_by_pool.values():
+        pool_reservations.sort(key=lambda entry: entry["start_time"])
 
     return templates.TemplateResponse(
         request,
@@ -1550,23 +1677,33 @@ def admin_reservations_create(
     end_date: date_cls = Form(...),
     end_time: str = Form(...),
     status: str = Form("pending"),
+    apply_extra_charge: bool = Form(False),
 ):
     try:
         starts_at, ends_at = _parse_reservation_window(start_date, start_time, end_date, end_time)
     except ValueError as exc:
         return _reservations_redirect(start_date.isoformat(), str(exc))
 
+    conflicting_cycle = _find_conflicting_cycle(pool_id, starts_at, ends_at)
+    if conflicting_cycle:
+        return _reservations_redirect(
+            start_date.isoformat(),
+            f"This pool is booked for the cycle \"{conflicting_cycle['name']}\" during that time. Pick a different time or pool.",
+        )
+
     day_type = "weekend" if start_date.weekday() >= 5 else "weekday"
     pricing_rule = (
         supabase.table("pricing_rules")
-        .select("price")
+        .select("price, extra_charge")
         .eq("pool_id", pool_id)
         .eq("day_type", day_type)
         .limit(1)
         .execute()
         .data
     )
-    price = pricing_rule[0]["price"] if pricing_rule else 0
+    base_price = pricing_rule[0]["price"] if pricing_rule else 0
+    extra_charge_amount = pricing_rule[0]["extra_charge"] if apply_extra_charge and pricing_rule else 0
+    price = base_price + extra_charge_amount
 
     try:
         supabase.table("reservations").insert({
@@ -1576,6 +1713,9 @@ def admin_reservations_create(
             "starts_at": starts_at,
             "ends_at": ends_at,
             "price_snapshot": price,
+            "base_price": base_price,
+            "extra_charge_applied": apply_extra_charge,
+            "extra_charge_amount": extra_charge_amount,
             "status": status,
         }).execute()
     except APIError as exc:
@@ -1598,23 +1738,33 @@ def admin_reservations_edit(
     end_date: date_cls = Form(...),
     end_time: str = Form(...),
     status: str = Form(...),
+    apply_extra_charge: bool = Form(False),
 ):
     try:
         starts_at, ends_at = _parse_reservation_window(start_date, start_time, end_date, end_time)
     except ValueError as exc:
         return _reservations_redirect(start_date.isoformat(), str(exc))
 
+    conflicting_cycle = _find_conflicting_cycle(pool_id, starts_at, ends_at)
+    if conflicting_cycle:
+        return _reservations_redirect(
+            start_date.isoformat(),
+            f"This pool is booked for the cycle \"{conflicting_cycle['name']}\" during that time. Pick a different time or pool.",
+        )
+
     day_type = "weekend" if start_date.weekday() >= 5 else "weekday"
     pricing_rule = (
         supabase.table("pricing_rules")
-        .select("price")
+        .select("price, extra_charge")
         .eq("pool_id", pool_id)
         .eq("day_type", day_type)
         .limit(1)
         .execute()
         .data
     )
-    price = pricing_rule[0]["price"] if pricing_rule else 0
+    base_price = pricing_rule[0]["price"] if pricing_rule else 0
+    extra_charge_amount = pricing_rule[0]["extra_charge"] if apply_extra_charge and pricing_rule else 0
+    price = base_price + extra_charge_amount
 
     try:
         supabase.table("reservations").update({
@@ -1624,6 +1774,9 @@ def admin_reservations_edit(
             "starts_at": starts_at,
             "ends_at": ends_at,
             "price_snapshot": price,
+            "base_price": base_price,
+            "extra_charge_applied": apply_extra_charge,
+            "extra_charge_amount": extra_charge_amount,
             "status": status,
         }).eq("id", reservation_id).execute()
     except APIError as exc:
@@ -1868,15 +2021,21 @@ def admin_payments_delete(payment_id: int):
 @admin_router.get("/admin/settings")
 def admin_settings(request: Request):
     pools = supabase.table("pools").select("id, name, capacity, is_active").order("name").execute().data
-    pricing_rules = supabase.table("pricing_rules").select("pool_id, day_type, price").execute().data
+    pricing_rules = (
+        supabase.table("pricing_rules").select("pool_id, day_type, price, extra_charge").execute().data
+    )
 
-    prices_by_pool: dict[int, dict[str, float]] = {}
+    rules_by_pool: dict[int, dict[str, dict]] = {}
     for rule in pricing_rules:
-        prices_by_pool.setdefault(rule["pool_id"], {})[rule["day_type"]] = rule["price"]
+        rules_by_pool.setdefault(rule["pool_id"], {})[rule["day_type"]] = rule
 
     for pool in pools:
-        pool["weekday_price"] = prices_by_pool.get(pool["id"], {}).get("weekday")
-        pool["weekend_price"] = prices_by_pool.get(pool["id"], {}).get("weekend")
+        weekday_rule = rules_by_pool.get(pool["id"], {}).get("weekday")
+        weekend_rule = rules_by_pool.get(pool["id"], {}).get("weekend")
+        pool["weekday_price"] = weekday_rule["price"] if weekday_rule else None
+        pool["weekday_extra_charge"] = weekday_rule["extra_charge"] if weekday_rule else 0
+        pool["weekend_price"] = weekend_rule["price"] if weekend_rule else None
+        pool["weekend_extra_charge"] = weekend_rule["extra_charge"] if weekend_rule else 0
 
     return templates.TemplateResponse(
         request,
@@ -1898,7 +2057,7 @@ def admin_settings_toggle_pool_active(pool_id: int):
     return RedirectResponse(url="/admin/settings", status_code=303)
 
 
-def _upsert_pricing_rule(pool_id: int, day_type: str, price: float) -> None:
+def _upsert_pricing_rule(pool_id: int, day_type: str, price: float, extra_charge: float) -> None:
     existing = (
         supabase.table("pricing_rules")
         .select("id")
@@ -1908,10 +2067,12 @@ def _upsert_pricing_rule(pool_id: int, day_type: str, price: float) -> None:
         .data
     )
     if existing:
-        supabase.table("pricing_rules").update({"price": price}).eq("id", existing[0]["id"]).execute()
+        supabase.table("pricing_rules").update(
+            {"price": price, "extra_charge": extra_charge}
+        ).eq("id", existing[0]["id"]).execute()
     else:
         supabase.table("pricing_rules").insert(
-            {"pool_id": pool_id, "day_type": day_type, "price": price}
+            {"pool_id": pool_id, "day_type": day_type, "price": price, "extra_charge": extra_charge}
         ).execute()
 
 
@@ -1920,9 +2081,11 @@ def admin_settings_update_pricing(
     pool_id: int,
     weekday_price: float = Form(...),
     weekend_price: float = Form(...),
+    weekday_extra_charge: float = Form(0),
+    weekend_extra_charge: float = Form(0),
 ):
-    _upsert_pricing_rule(pool_id, "weekday", weekday_price)
-    _upsert_pricing_rule(pool_id, "weekend", weekend_price)
+    _upsert_pricing_rule(pool_id, "weekday", weekday_price, weekday_extra_charge)
+    _upsert_pricing_rule(pool_id, "weekend", weekend_price, weekend_extra_charge)
     return RedirectResponse(url="/admin/settings", status_code=303)
 
 

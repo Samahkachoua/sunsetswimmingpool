@@ -24,25 +24,25 @@
             <!-- Participant Name -->
             <div class="space-y-xs">
                 <label class="font-label-md text-label-md text-on-surface-variant">Participant Full Name</label>
-                <input class="w-full min-h-[56px] px-md rounded-xl border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary bg-surface-bright transition-all outline-none" name="full_name" placeholder="Enter full name" type="text" required>
+                <input class="w-full min-h-[40px] px-md rounded-xl border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary bg-surface-bright transition-all outline-none" name="full_name" placeholder="Enter full name" type="text" required>
             </div>
             <!-- Mother Name -->
             <div class="space-y-xs">
                 <label class="font-label-md text-label-md text-on-surface-variant">Mother Name</label>
-                <input class="w-full min-h-[56px] px-md rounded-xl border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary bg-surface-bright transition-all outline-none" name="mother_name" placeholder="Enter mother's name" type="text" required>
+                <input class="w-full min-h-[40px] px-md rounded-xl border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary bg-surface-bright transition-all outline-none" name="mother_name" placeholder="Enter mother's name" type="text" required>
             </div>
             <!-- Phone Number -->
             <div class="space-y-xs">
                 <label class="font-label-md text-label-md text-on-surface-variant">Phone Number</label>
                 <div class="relative">
                     <span class="absolute left-md top-1/2 -translate-y-1/2 font-body-md text-on-surface-variant">+961</span>
-                    <input class="w-full min-h-[56px] pl-16 pr-md rounded-xl border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary bg-surface-bright transition-all outline-none" name="phone" placeholder="00 000 000" type="tel" required>
+                    <input class="w-full min-h-[40px] pl-16 pr-md rounded-xl border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary bg-surface-bright transition-all outline-none" name="phone" placeholder="00 000 000" type="tel" required>
                 </div>
             </div>
             <!-- Date of Birth -->
             <div class="space-y-xs">
                 <label class="font-label-md text-label-md text-on-surface-variant">Date of Birth</label>
-                <input class="w-full min-h-[56px] px-md rounded-xl border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary bg-surface-bright transition-all outline-none" name="date_of_birth" type="date" required>
+                <input class="w-full min-h-[40px] px-md rounded-xl border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary bg-surface-bright transition-all outline-none" name="date_of_birth" type="date" required>
             </div>
             <!-- Time Preferred (Segmented Control) -->
             <div class="space-y-xs">
@@ -76,7 +76,7 @@
             {% else %}
             <div class="space-y-xs md:col-span-2">
                 <label class="font-label-md text-label-md text-on-surface-variant">Cycle</label>
-                <select class="w-full min-h-[56px] px-md rounded-xl border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary bg-surface-bright transition-all outline-none" name="cycle_id" required>
+                <select class="w-full min-h-[40px] px-md rounded-xl border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary bg-surface-bright transition-all outline-none" name="cycle_id" required>
                     {% for cycle in open_cycles %}
                     <option value="{{ cycle.id }}">{{ cycle.name }} ({{ cycle.start_date }} – {{ cycle.end_date }})</option>
                     {% endfor %}
