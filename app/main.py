@@ -670,15 +670,36 @@ def admin_logout():
     return response
 
 
-@admin_router.get("/admin/dashboard")
-def admin_dashboard(request: Request):
-    enrollments = (
-        supabase.table("enrollments")
-        .select("id, level, status, cycle_id, time_preferred, created_at, participants(full_name)")
-        .order("created_at", desc=True)
+def _get_open_cycle() -> dict | None:
+    rows = (
+        supabase.table("cycles")
+        .select("id, name")
+        .eq("is_open_for_registration", True)
+        .limit(1)
         .execute()
         .data
     )
+    return rows[0] if rows else None
+
+
+@admin_router.get("/admin/dashboard")
+def admin_dashboard(request: Request):
+    open_cycle = _get_open_cycle()
+    open_cycle_id = open_cycle["id"] if open_cycle else None
+    open_cycle_name = open_cycle["name"] if open_cycle else None
+
+    if open_cycle_id is not None:
+        enrollments = (
+            supabase.table("enrollments")
+            .select("id, level, status, cycle_id, time_preferred, created_at, participants(full_name)")
+            .eq("cycle_id", open_cycle_id)
+            .order("created_at", desc=True)
+            .execute()
+            .data
+        )
+    else:
+        enrollments = []
+
     total_reservations = supabase.table("reservations").select("id", count="exact").execute().count
     cancelled_reservations = (
         supabase.table("reservations")
@@ -688,24 +709,13 @@ def admin_dashboard(request: Request):
         .count
     )
 
-    open_cycle = (
-        supabase.table("cycles")
-        .select("id")
-        .eq("is_open_for_registration", True)
-        .limit(1)
-        .execute()
-        .data
-    )
-    open_cycle_id = open_cycle[0]["id"] if open_cycle else None
-
     level_counts = {"beginner": 0, "intermediate": 0, "advanced": 0}
     time_preferred_counts = {"morning": 0, "afternoon": 0}
     for enrollment in enrollments:
         if enrollment["level"] in level_counts:
             level_counts[enrollment["level"]] += 1
-        if open_cycle_id is not None and enrollment["cycle_id"] == open_cycle_id:
-            if enrollment["time_preferred"] in time_preferred_counts:
-                time_preferred_counts[enrollment["time_preferred"]] += 1
+        if enrollment["time_preferred"] in time_preferred_counts:
+            time_preferred_counts[enrollment["time_preferred"]] += 1
         enrollment["created_at_display"] = datetime.fromisoformat(enrollment["created_at"]).strftime("%B %d, %Y")
 
     return templates.TemplateResponse(
@@ -713,6 +723,7 @@ def admin_dashboard(request: Request):
         "admin/dashboard.html",
         {
             "today": date.today().strftime("%B %d, %Y"),
+            "open_cycle_name": open_cycle_name,
             "total_enrollments": len(enrollments),
             "total_reservations": total_reservations,
             "cancelled_reservations": cancelled_reservations,
@@ -1107,6 +1118,7 @@ def admin_participants_delete(participant_id: int):
 ENROLLMENTS_SORTABLE = {
     "full_name": ("full_name", "participants"),
     "date_of_birth": ("date_of_birth", "participants"),
+    "cycle": ("name", "cycles"),
     "level": ("level", None),
     "enrollment_type": ("enrollment_type", None),
     "time_preferred": ("time_preferred", None),
@@ -1121,17 +1133,34 @@ TIME_SLOT_PERIOD_BY_TIME_PREFERRED = {
 }
 
 ENROLLMENTS_SELECT_COLS = (
-    "id, level, enrollment_type, time_preferred, price, status, time_slot_id, created_at,"
-    " participants!inner(full_name, mother_name, phone, date_of_birth), time_slots(start_time, end_time)"
+    "id, level, enrollment_type, time_preferred, price, status, time_slot_id, cycle_id, created_at,"
+    " participants!inner(full_name, mother_name, phone, date_of_birth), time_slots(start_time, end_time),"
+    " cycles(name)"
 )
 
 
-def _enrollments_apply_filters(query, filters: dict):
+def _resolve_enrollments_cycle_id(filters: dict) -> int | None:
+    """The cycle filter defaults to whichever cycle is currently open for
+    registration unless the admin has explicitly picked a cycle (or "All
+    Cycles", stored as the "all" sentinel) — mirrors the dashboard's default.
+    """
+    raw = filters.get("cycle_id")
+    if raw == "all":
+        return None
+    if isinstance(raw, int):
+        return raw
+    open_cycle = _get_open_cycle()
+    return open_cycle["id"] if open_cycle else None
+
+
+def _enrollments_apply_filters(query, filters: dict, cycle_id: int | None = None):
     min_dob, max_dob = _age_bounds_to_dob_range(filters.get("age_min"), filters.get("age_max"))
     if min_dob is not None:
         query = query.gte("participants.date_of_birth", min_dob.isoformat())
     if max_dob is not None:
         query = query.lte("participants.date_of_birth", max_dob.isoformat())
+    if cycle_id is not None:
+        query = query.eq("cycle_id", cycle_id)
     if filters.get("level"):
         query = query.eq("level", filters["level"])
     if filters.get("enrollment_type"):
@@ -1190,6 +1219,9 @@ def _enrollment_sort_key(column: str, foreign_table: str | None):
         elif foreign_table == "time_slots":
             time_slot = enrollment.get("time_slots")
             value = time_slot.get(column) if time_slot else None
+        elif foreign_table == "cycles":
+            cycle = enrollment.get("cycles")
+            value = cycle.get(column) if cycle else None
         else:
             value = enrollment.get(column)
         return (value is None, value if value is not None else "")
@@ -1211,10 +1243,14 @@ def admin_enrollments(request: Request):
 
     filters = _get_filters_cookie(request, ENROLLMENTS_FILTER_COOKIE)
     paid_status_filter = filters.get("paid_status")
+    cycles = supabase.table("cycles").select("id, name, is_open_for_registration").order("start_date", desc=True).execute().data
+    effective_cycle_id = _resolve_enrollments_cycle_id(filters)
 
     def build_query(start, end):
         query = _enrollments_apply_filters(
-            supabase.table("enrollments").select(ENROLLMENTS_SELECT_COLS, count="exact"), filters
+            supabase.table("enrollments").select(ENROLLMENTS_SELECT_COLS, count="exact"),
+            filters,
+            cycle_id=effective_cycle_id,
         )
         return query.order(column, desc=(sort_dir == "desc")).range(start, end).execute()
 
@@ -1227,7 +1263,9 @@ def admin_enrollments(request: Request):
         # references participants.date_of_birth, which only resolves when that
         # embed is actually present in the select clause (participants!inner(...)).
         all_matching_rows = (
-            _enrollments_apply_filters(supabase.table("enrollments").select(ENROLLMENTS_SELECT_COLS), filters)
+            _enrollments_apply_filters(
+                supabase.table("enrollments").select(ENROLLMENTS_SELECT_COLS), filters, cycle_id=effective_cycle_id
+            )
             .execute()
             .data
         )
@@ -1241,7 +1279,9 @@ def admin_enrollments(request: Request):
         # only reorders rows *inside* an embedded relationship, not the parent
         # rows). Both require fetching everything matching the other filters,
         # then filtering/sorting/paginating in Python.
-        query = _enrollments_apply_filters(supabase.table("enrollments").select(ENROLLMENTS_SELECT_COLS), filters)
+        query = _enrollments_apply_filters(
+            supabase.table("enrollments").select(ENROLLMENTS_SELECT_COLS), filters, cycle_id=effective_cycle_id
+        )
         all_matching = query.execute().data
         paid_lookup = _enrollments_payments_lookup([enrollment["id"] for enrollment in all_matching])
 
@@ -1280,6 +1320,8 @@ def admin_enrollments(request: Request):
         {
             "enrollments": enrollments,
             "time_slots": time_slots,
+            "cycles": cycles,
+            "selected_cycle_id": effective_cycle_id,
             "status_classes": STATUS_BADGE_CLASSES,
             "today_iso": date.today().isoformat(),
             "error": request.query_params.get("error"),
@@ -1309,8 +1351,11 @@ def admin_enrollments_export(request: Request, format: str = "xlsx"):
 
     filters = _get_filters_cookie(request, ENROLLMENTS_FILTER_COOKIE)
     paid_status_filter = filters.get("paid_status")
+    effective_cycle_id = _resolve_enrollments_cycle_id(filters)
 
-    query = _enrollments_apply_filters(supabase.table("enrollments").select(ENROLLMENTS_SELECT_COLS), filters)
+    query = _enrollments_apply_filters(
+        supabase.table("enrollments").select(ENROLLMENTS_SELECT_COLS), filters, cycle_id=effective_cycle_id
+    )
     enrollments = query.execute().data
 
     paid_lookup = _enrollments_payments_lookup([enrollment["id"] for enrollment in enrollments])
@@ -1327,6 +1372,7 @@ def admin_enrollments_export(request: Request, format: str = "xlsx"):
         "Mother's Name",
         "Phone Number",
         "Age",
+        "Cycle",
         "Level",
         "Type",
         "Preferred Time",
@@ -1339,6 +1385,7 @@ def admin_enrollments_export(request: Request, format: str = "xlsx"):
     rows = []
     for enrollment in enrollments:
         participant = enrollment["participants"]
+        cycle = enrollment.get("cycles")
         paid = paid_lookup.get(enrollment["id"], 0)
         time_slot = enrollment.get("time_slots")
         time_slot_label = f"{_time12(time_slot['start_time'])}–{_time12(time_slot['end_time'])}" if time_slot else ""
@@ -1348,6 +1395,7 @@ def admin_enrollments_export(request: Request, format: str = "xlsx"):
                 participant["mother_name"],
                 participant["phone"],
                 calculate_age(participant["date_of_birth"]),
+                cycle["name"] if cycle else "",
                 enrollment["level"].capitalize(),
                 enrollment["enrollment_type"].capitalize(),
                 enrollment["time_preferred"].capitalize(),
@@ -1374,6 +1422,7 @@ def admin_enrollments_set_page_size(page_size: str = Form(...)):
 
 @admin_router.post("/admin/enrollments/filters")
 def admin_enrollments_set_filters(
+    cycle_id: str = Form(""),
     age_min: str = Form(""),
     age_max: str = Form(""),
     level: str = Form(""),
@@ -1386,6 +1435,8 @@ def admin_enrollments_set_filters(
     phone: str = Form(""),
 ):
     filters = {}
+    if cycle_id == "all":
+        filters["cycle_id"] = "all"
     try:
         if age_min.strip():
             filters["age_min"] = int(age_min)
@@ -1393,6 +1444,8 @@ def admin_enrollments_set_filters(
             filters["age_max"] = int(age_max)
         if time_slot_id.strip():
             filters["time_slot_id"] = int(time_slot_id)
+        if cycle_id.strip() and cycle_id != "all":
+            filters["cycle_id"] = int(cycle_id)
     except ValueError:
         pass
     if level:

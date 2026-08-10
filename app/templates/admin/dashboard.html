@@ -11,6 +11,17 @@
         <h2 class="font-headline-lg text-headline-lg text-primary">Hello, Admin</h2>
         <p class="font-body-md text-body-md text-on-surface-variant">{{ today }}</p>
     </div>
+    {% if open_cycle_name %}
+    <div class="flex items-center gap-2 px-4 py-2 bg-secondary-container/10 text-secondary rounded-full">
+        <span class="material-symbols-outlined text-lg">radio_button_checked</span>
+        <span class="font-label-md text-label-md">Open registration: {{ open_cycle_name }}</span>
+    </div>
+    {% else %}
+    <div class="flex items-center gap-2 px-4 py-2 bg-error-container/20 text-on-error-container rounded-full">
+        <span class="material-symbols-outlined text-lg">radio_button_unchecked</span>
+        <span class="font-label-md text-label-md">No cycle currently open for registration</span>
+    </div>
+    {% endif %}
 </section>
 
 <!-- Stats Grid -->
@@ -103,7 +114,9 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="3" class="py-6 text-center font-body-md text-on-surface-variant">No enrollments yet.</td>
+                    <td colspan="3" class="py-6 text-center font-body-md text-on-surface-variant">
+                        {% if open_cycle_name %}No enrollments yet for {{ open_cycle_name }}.{% else %}No cycle is currently open for registration.{% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
