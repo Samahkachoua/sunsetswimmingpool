@@ -13,14 +13,29 @@
             <p class="font-body-md text-on-surface-variant">Join our next swimming cycle. Secure your spot now.</p>
         </div>
 
-        {% if error %}
-        <div class="px-lg py-3 rounded-xl bg-error-container text-on-error-container font-body-md">{{ error }}</div>
-        {% endif %}
+        <div id="form-error-banner" class="hidden px-lg py-3 rounded-xl bg-error-container text-on-error-container font-body-md"></div>
 
         {% if not open_cycles %}
         <p class="font-body-md text-on-surface-variant">Registration is currently closed. Please check back soon.</p>
         {% else %}
-        <form class="space-y-md md:grid md:grid-cols-2 md:gap-lg md:space-y-0" method="post" action="/register">
+        <form class="space-y-md md:grid md:grid-cols-2 md:gap-lg md:space-y-0" method="post" action="/register" id="register-form">
+            <!-- Returning participant shortcut -->
+            <div class="md:col-span-2 space-y-xs">
+                <button type="button" id="returning-toggle" class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:text-primary-container transition-colors underline decoration-dotted underline-offset-4">
+                    <span>Already registered before? Enter your Participant Number</span>
+                    <span class="material-symbols-outlined text-base">arrow_forward</span>
+                </button>
+                <div id="returning-panel" class="hidden space-y-xs pt-xs">
+                    <label class="font-label-md text-label-md text-on-surface-variant">Participant Number</label>
+                    <div class="relative">
+                        <input id="participant-number-input" class="w-full min-h-[44px] px-md pr-12 rounded-xl border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary bg-surface-bright transition-all outline-none" type="text" placeholder="P-2026-001" autocomplete="off">
+                        <span id="participant-number-spinner" class="hidden material-symbols-outlined animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">progress_activity</span>
+                    </div>
+                    <p class="font-caption text-caption text-on-surface-variant">Also enter your phone number below — we check both together to confirm it's you.</p>
+                    <p id="participant-number-message" class="hidden font-caption text-caption"></p>
+                    <button type="button" id="returning-clear" class="hidden font-label-md text-label-md text-secondary underline decoration-dotted underline-offset-4">Not you? Clear</button>
+                </div>
+            </div>
             <!-- Participant Name -->
             <div class="space-y-xs">
                 <label class="font-label-md text-label-md text-on-surface-variant">Participant Full Name</label>
@@ -86,13 +101,30 @@
 
             <input type="hidden" name="level" id="level" value="beginner">
             <input type="hidden" name="time_preferred" id="time_preferred" value="morning">
+            <input type="hidden" name="confirmed_participant_id" id="confirmed_participant_id" value="">
+            <input type="hidden" name="skip_duplicate_check" id="skip_duplicate_check" value="">
 
             <!-- Primary Action -->
-            <button class="w-full bg-primary-container text-on-primary py-md rounded-xl font-title-md text-title-md active:scale-[0.98] transition-transform duration-150 mt-lg shadow-lg md:col-span-2 md:mt-xl flex items-center justify-center gap-2" type="submit">
-                <span>Register Now</span>
-                <span class="material-symbols-outlined">arrow_forward</span>
+            <button class="w-full bg-primary-container text-on-primary py-md rounded-xl font-title-md text-title-md active:scale-[0.98] transition-transform duration-150 mt-lg shadow-lg md:col-span-2 md:mt-xl flex items-center justify-center gap-2 disabled:opacity-60" type="submit" id="register-submit-btn">
+                <span id="register-submit-label">Register Now</span>
+                <span id="register-submit-spinner" class="hidden material-symbols-outlined animate-spin">progress_activity</span>
+                <span id="register-submit-icon" class="material-symbols-outlined">arrow_forward</span>
             </button>
         </form>
+
+        <!-- Duplicate-safety-net confirmation modal -->
+        <dialog id="duplicate-confirm-dialog" class="rounded-2xl w-full max-w-md">
+            <div class="bg-surface-container-lowest w-full rounded-2xl shadow-[0px_4px_24px_rgba(0,106,98,0.06)] overflow-hidden flex flex-col">
+                <div class="p-lg space-y-sm">
+                    <h3 class="font-title-md text-title-md text-primary-container">Is this the same person?</h3>
+                    <p id="duplicate-confirm-message" class="font-body-md text-body-md text-on-surface-variant"></p>
+                </div>
+                <div class="p-lg pt-0 flex flex-col md:flex-row gap-3">
+                    <button type="button" id="duplicate-confirm-no" class="flex-1 min-h-[44px] px-lg py-2 bg-transparent border border-secondary text-secondary font-semibold rounded-xl hover:bg-secondary-container transition-colors">No, different person</button>
+                    <button type="button" id="duplicate-confirm-yes" class="flex-1 min-h-[44px] px-lg py-2 bg-primary-container text-white font-bold rounded-xl active:scale-95 transition-transform hover:opacity-90">Yes, that's me</button>
+                </div>
+            </div>
+        </dialog>
         {% endif %}
     </section>
 </main>

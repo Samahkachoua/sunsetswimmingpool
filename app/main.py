@@ -4,12 +4,14 @@ import json
 import math
 import os
 import re
+import time
+from collections import defaultdict, deque
 from datetime import date, datetime, timedelta
 from datetime import date as date_cls
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from openpyxl import Workbook, load_workbook
@@ -328,6 +330,23 @@ def _next_participant_number() -> str:
     return f"{prefix}{next_seq:03d}"
 
 
+_rate_limit_hits: dict[str, deque] = defaultdict(deque)
+
+
+def _check_rate_limit(request: Request, bucket: str, max_calls: int = 10, window_seconds: int = 60) -> None:
+    """Simple in-memory per-IP throttle for public lookup endpoints. Guards against
+    scraping participant PII by enumerating sequential participant numbers."""
+    client_ip = request.client.host if request.client else "unknown"
+    key = f"{bucket}:{client_ip}"
+    now = time.monotonic()
+    hits = _rate_limit_hits[key]
+    while hits and now - hits[0] > window_seconds:
+        hits.popleft()
+    if len(hits) >= max_calls:
+        raise HTTPException(status_code=429, detail="Too many requests. Please try again shortly.")
+    hits.append(now)
+
+
 @app.get("/")
 def index(request: Request):
     return templates.TemplateResponse(request, "index.html")
@@ -359,6 +378,76 @@ def _normalize_phone(phone: str) -> str:
     return cleaned
 
 
+@app.get("/register/lookup/participant")
+def register_lookup_participant(request: Request, number: str = "", phone: str = ""):
+    """Returning-participant shortcut: requires BOTH the participant number and the
+    phone number on file to match — the number alone is guessable/sequential, so a
+    single-factor lookup would let anyone walk through numbers and harvest another
+    family's name/DOB/phone. Rate-limited (tighter than the passive phone lookup)
+    since this is effectively a verification check, not just a search."""
+    _check_rate_limit(request, "lookup-participant", max_calls=5, window_seconds=300)
+    number = number.strip()
+    phone = phone.strip()
+    if not number or not phone:
+        return {"found": False}
+    formatted_phone = f"+961{_normalize_phone(phone)}"
+    rows = (
+        supabase.table("participants")
+        .select("id, full_name, mother_name, phone, date_of_birth")
+        .ilike("participant_number", number)
+        .eq("phone", formatted_phone)
+        .limit(1)
+        .execute()
+        .data
+    )
+    if not rows:
+        return {"found": False}
+    participant = rows[0]
+    stored_phone = participant["phone"]
+    return {
+        "found": True,
+        "id": participant["id"],
+        "full_name": participant["full_name"],
+        "mother_name": participant["mother_name"],
+        "date_of_birth": participant["date_of_birth"],
+        "phone_local": stored_phone[4:] if stored_phone.startswith("+961") else stored_phone,
+    }
+
+
+def _find_exact_participant_match(full_name: str, mother_name: str, formatted_phone: str) -> int | None:
+    """Certain match — same as today's implicit dedup. Silent, never needs confirmation."""
+    rows = (
+        supabase.table("participants")
+        .select("id")
+        .eq("full_name", full_name)
+        .eq("mother_name", mother_name)
+        .eq("phone", formatted_phone)
+        .execute()
+        .data
+    )
+    return rows[0]["id"] if rows else None
+
+
+def _find_probable_duplicate(full_name: str, date_of_birth: date) -> dict | None:
+    """Silent safety net: exact date-of-birth match + fuzzy name similarity via the
+    find_probable_duplicate_participant Postgres function (pg_trgm, threshold 0.35).
+    Requires migrations/0008_participant_duplicate_matching.sql to have been run —
+    until then the RPC call 404s, which we swallow so registration keeps working
+    normally (no confirmation prompts, just no fuzzy safety net) rather than 500ing."""
+    try:
+        rows = (
+            supabase.rpc(
+                "find_probable_duplicate_participant",
+                {"p_full_name": full_name, "p_date_of_birth": date_of_birth.isoformat()},
+            )
+            .execute()
+            .data
+        )
+    except APIError:
+        return None
+    return rows[0] if rows else None
+
+
 def _upsert_registration(
     full_name: str,
     mother_name: str,
@@ -368,37 +457,45 @@ def _upsert_registration(
     time_preferred: str,
     cycle_id: int,
     cycle_price: float,
+    participant_id_override: int | None = None,
 ) -> int:
-    """Create/update a participant and their enrollment for a cycle. Returns the enrollment id."""
+    """Create/update a participant and their enrollment for a cycle. Returns the enrollment id.
+
+    `participant_id_override` is set when the caller already knows which
+    participant this is (returning-participant shortcut, phone-match tap, or a
+    confirmed "yes" on the duplicate-safety-net modal) — skips matching and
+    reuses that participant, refreshing their details from the submitted values.
+    """
     formatted_phone = f"+961{_normalize_phone(phone)}"
-    existing_participant = (
-        supabase.table("participants")
-        .select("id")
-        .eq("full_name", full_name)
-        .eq("mother_name", mother_name)
-        .eq("phone", formatted_phone)
-        .execute()
-        .data
-    )
-    if existing_participant:
-        participant_id = existing_participant[0]["id"]
-        supabase.table("participants").update(
-            {"date_of_birth": date_of_birth.isoformat()}
-        ).eq("id", participant_id).execute()
+    if participant_id_override is not None:
+        participant_id = participant_id_override
+        supabase.table("participants").update({
+            "full_name": full_name,
+            "mother_name": mother_name,
+            "phone": formatted_phone,
+            "date_of_birth": date_of_birth.isoformat(),
+        }).eq("id", participant_id).execute()
     else:
-        participant = (
-            supabase.table("participants")
-            .insert({
-                "full_name": full_name,
-                "mother_name": mother_name,
-                "phone": formatted_phone,
-                "date_of_birth": date_of_birth.isoformat(),
-                "participant_number": _next_participant_number(),
-            })
-            .execute()
-            .data[0]
-        )
-        participant_id = participant["id"]
+        existing_id = _find_exact_participant_match(full_name, mother_name, formatted_phone)
+        if existing_id is not None:
+            participant_id = existing_id
+            supabase.table("participants").update(
+                {"date_of_birth": date_of_birth.isoformat()}
+            ).eq("id", participant_id).execute()
+        else:
+            participant = (
+                supabase.table("participants")
+                .insert({
+                    "full_name": full_name,
+                    "mother_name": mother_name,
+                    "phone": formatted_phone,
+                    "date_of_birth": date_of_birth.isoformat(),
+                    "participant_number": _next_participant_number(),
+                })
+                .execute()
+                .data[0]
+            )
+            participant_id = participant["id"]
 
     existing_enrollment = (
         supabase.table("enrollments")
@@ -442,7 +539,16 @@ def register_submit(
     level: str = Form(...),
     time_preferred: str = Form(...),
     cycle_id: int = Form(...),
+    confirmed_participant_id: str = Form(""),
+    skip_duplicate_check: str = Form(""),
 ):
+    """Submitted via fetch() from register.js, so this always responds with JSON:
+    - {"error": "..."} — validation failure (e.g. cycle closed), form stays open.
+    - {"needs_confirmation": True, "match": {...}} — a plausible-but-unconfirmed
+      duplicate was found; nothing was created yet, the client shows a modal and
+      resubmits with confirmed_participant_id or skip_duplicate_check set.
+    - {"redirect_url": "..."} — registration completed, client navigates there.
+    """
     open_cycles = (
         supabase.table("cycles")
         .select("id, name, start_date, end_date, cycle_price")
@@ -453,21 +559,40 @@ def register_submit(
     )
     open_cycle = next((cycle for cycle in open_cycles if cycle["id"] == cycle_id), None)
     if open_cycle is None:
-        return templates.TemplateResponse(
-            request,
-            "register.html",
-            {
-                "open_cycles": open_cycles,
-                "error": "That cycle is no longer open for registration. Please choose a currently open cycle.",
-            },
+        return JSONResponse(
+            {"error": "That cycle is no longer open for registration. Please choose a currently open cycle."},
             status_code=400,
         )
 
+    participant_override = int(confirmed_participant_id) if confirmed_participant_id.strip() else None
+
+    if participant_override is None and not skip_duplicate_check:
+        formatted_phone = f"+961{_normalize_phone(phone)}"
+        if _find_exact_participant_match(full_name, mother_name, formatted_phone) is None:
+            probable_match = _find_probable_duplicate(full_name, date_of_birth)
+            if probable_match is not None:
+                return JSONResponse({
+                    "needs_confirmation": True,
+                    "match": {
+                        "id": probable_match["id"],
+                        "full_name": probable_match["full_name"],
+                        "date_of_birth": probable_match["date_of_birth"],
+                    },
+                })
+
     enrollment_id = _upsert_registration(
-        full_name, mother_name, phone, date_of_birth, level, time_preferred, cycle_id, open_cycle["cycle_price"]
+        full_name,
+        mother_name,
+        phone,
+        date_of_birth,
+        level,
+        time_preferred,
+        cycle_id,
+        open_cycle["cycle_price"],
+        participant_id_override=participant_override,
     )
 
-    return RedirectResponse(url=f"/register/success/{enrollment_id}", status_code=303)
+    return JSONResponse({"redirect_url": f"/register/success/{enrollment_id}"})
 
 
 @app.get("/register/success/{enrollment_id}")
@@ -948,6 +1073,7 @@ def admin_cycles_delete(cycle_id: int):
 
 PARTICIPANTS_SORTABLE = {
     "full_name": "full_name",
+    "participant_number": "participant_number",
     "mother_name": "mother_name",
     "phone": "phone",
     "date_of_birth": "date_of_birth",
@@ -988,7 +1114,9 @@ def admin_participants(request: Request):
 
     def build_query(start, end):
         query = _participants_apply_filters(
-            supabase.table("participants").select("id, full_name, mother_name, phone, date_of_birth", count="exact"),
+            supabase.table("participants").select(
+                "id, full_name, mother_name, phone, date_of_birth, participant_number", count="exact"
+            ),
             filters,
         )
         return query.order(column, desc=(sort_dir == "desc")).range(start, end).execute()
@@ -1031,13 +1159,17 @@ def admin_participants_export(request: Request, format: str = "xlsx"):
 
     filters = _get_filters_cookie(request, PARTICIPANTS_FILTER_COOKIE)
     query = _participants_apply_filters(
-        supabase.table("participants").select("id, full_name, mother_name, phone, date_of_birth"), filters
+        supabase.table("participants").select(
+            "id, full_name, mother_name, phone, date_of_birth, participant_number"
+        ),
+        filters,
     )
     participants = query.order(column, desc=(sort_dir == "desc")).execute().data
 
-    headers = ["Full Name", "Mother's Name", "Phone Number", "Date of Birth", "Age"]
+    headers = ["Participant #", "Full Name", "Mother's Name", "Phone Number", "Date of Birth", "Age"]
     rows = [
         [
+            participant["participant_number"],
             participant["full_name"],
             participant["mother_name"],
             participant["phone"],
@@ -1117,6 +1249,7 @@ def admin_participants_delete(participant_id: int):
 
 ENROLLMENTS_SORTABLE = {
     "full_name": ("full_name", "participants"),
+    "participant_number": ("participant_number", "participants"),
     "date_of_birth": ("date_of_birth", "participants"),
     "cycle": ("name", "cycles"),
     "level": ("level", None),
@@ -1134,8 +1267,8 @@ TIME_SLOT_PERIOD_BY_TIME_PREFERRED = {
 
 ENROLLMENTS_SELECT_COLS = (
     "id, level, enrollment_type, time_preferred, price, status, time_slot_id, cycle_id, created_at,"
-    " participants!inner(full_name, mother_name, phone, date_of_birth), time_slots(start_time, end_time),"
-    " cycles(name)"
+    " participants!inner(full_name, mother_name, phone, date_of_birth, participant_number),"
+    " time_slots(start_time, end_time), cycles(name)"
 )
 
 
@@ -1368,6 +1501,7 @@ def admin_enrollments_export(request: Request, format: str = "xlsx"):
     enrollments.sort(key=_enrollment_sort_key(column, foreign_table), reverse=(sort_dir == "desc"))
 
     headers = [
+        "Participant #",
         "Name",
         "Mother's Name",
         "Phone Number",
@@ -1391,6 +1525,7 @@ def admin_enrollments_export(request: Request, format: str = "xlsx"):
         time_slot_label = f"{_time12(time_slot['start_time'])}–{_time12(time_slot['end_time'])}" if time_slot else ""
         rows.append(
             [
+                participant["participant_number"],
                 participant["full_name"],
                 participant["mother_name"],
                 participant["phone"],

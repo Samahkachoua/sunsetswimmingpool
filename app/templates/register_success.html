@@ -74,8 +74,15 @@
                     </div>
                 </div>
 
-                <div class="mt-xl pt-lg border-t border-surface-variant flex items-center justify-between">
-                    <p class="text-outline font-caption">Registration ID: {{ enrollment.participants.participant_number }}</p>
+                <div class="mt-xl pt-lg border-t border-surface-variant">
+                    <div class="flex items-start gap-3 p-lg rounded-xl bg-tertiary-fixed">
+                        <span class="material-symbols-outlined text-on-tertiary-fixed text-2xl">photo_camera</span>
+                        <div class="space-y-1">
+                            <p class="font-label-md text-label-md text-on-tertiary-fixed">Take a screenshot of this page</p>
+                            <p class="font-body-md text-body-md text-on-tertiary-fixed/80">Keep your Participant Number on hand — you'll need it to register faster in future cycles.</p>
+                            <p class="font-headline-lg text-xl font-bold text-on-tertiary-fixed tracking-wide mt-1">{{ enrollment.participants.participant_number }}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

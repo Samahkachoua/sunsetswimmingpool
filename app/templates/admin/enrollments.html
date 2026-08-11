@@ -106,18 +106,19 @@
         <table class="w-full text-left border-collapse table-fixed">
             <thead>
                 <tr class="bg-surface-container-low border-b border-surface-container-high">
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[13%]">{{ m.sort_header('Name', 'full_name', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[11%]">Mother's Name</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[10%]">Phone Number</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[11%]">{{ m.sort_header('Name', 'full_name', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[8%]">{{ m.sort_header('Participant #', 'participant_number', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[10%]">Mother's Name</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[9%]">Phone Number</th>
                     <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[4%]">{{ m.sort_header('Age', 'date_of_birth', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[8%]">{{ m.sort_header('Cycle', 'cycle', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[8%]">{{ m.sort_header('Level', 'level', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[7%]">{{ m.sort_header('Type', 'enrollment_type', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[8%]">{{ m.sort_header('Preferred Time', 'time_preferred', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[8%]">{{ m.sort_header('Time Slot', 'start_time', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[7%]">{{ m.sort_header('Cycle', 'cycle', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[7%]">{{ m.sort_header('Level', 'level', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[6%]">{{ m.sort_header('Type', 'enrollment_type', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[7%]">{{ m.sort_header('Preferred Time', 'time_preferred', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[7%]">{{ m.sort_header('Time Slot', 'start_time', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
                     <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[7%]">{{ m.sort_header('Amount', 'price', sort_by, sort_dir, '/admin/enrollments/sort') }}</th>
                     <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[7%]">Paid</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[9%]">Actions</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[10%]">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-surface-container-low">
@@ -125,6 +126,9 @@
                 <tr class="hover:bg-surface-container-lowest transition-colors {{ 'bg-surface-container-lowest/60' if loop.index0 % 2 == 1 else '' }}">
                     <td class="px-6 py-2 overflow-hidden">
                         <p class="font-label-md text-label-md text-primary truncate text-start" title="{{ enrollment.participants.full_name }}">{{ enrollment.participants.full_name }}</p>
+                    </td>
+                    <td class="px-6 py-2 overflow-hidden">
+                        <p class="font-body-md text-body-md text-on-surface-variant truncate text-start" title="{{ enrollment.participants.participant_number }}">{{ enrollment.participants.participant_number or "—" }}</p>
                     </td>
                     <td class="px-6 py-2 overflow-hidden">
                         <p class="font-body-md text-body-md text-on-surface truncate text-start" title="{{ enrollment.participants.mother_name }}">{{ enrollment.participants.mother_name }}</p>
@@ -162,13 +166,13 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td class="px-6 py-8 text-center font-body-md text-on-surface-variant" colspan="12">No enrollments yet.</td>
+                    <td class="px-6 py-8 text-center font-body-md text-on-surface-variant" colspan="13">No enrollments yet.</td>
                 </tr>
                 {% endfor %}
             </tbody>
             <tfoot>
                 <tr class="bg-surface-container-low border-t-2 border-outline-variant">
-                    <td class="px-6 py-2.5" colspan="9"></td>
+                    <td class="px-6 py-2.5" colspan="10"></td>
                     <td class="px-6 py-2.5 font-label-md text-label-md text-primary text-right font-bold">${{ "%.2f"|format(total_amount) }}</td>
                     <td class="px-6 py-2.5 font-label-md text-label-md text-secondary text-right font-bold">${{ "%.2f"|format(total_paid) }}</td>
                     <td class="px-6 py-2.5"></td>
@@ -198,6 +202,7 @@
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-x-3 gap-y-1 font-body-md text-sm text-on-surface-variant">
+                <div class="col-span-2 truncate" title="{{ enrollment.participants.participant_number }}"><span class="text-on-surface-variant/70">Participant #:</span> {{ enrollment.participants.participant_number or "—" }}</div>
                 <div class="col-span-2 truncate" title="{{ enrollment.participants.mother_name }}"><span class="text-on-surface-variant/70">Mother's Name:</span> {{ enrollment.participants.mother_name }}</div>
                 <div class="col-span-2 truncate" title="{{ enrollment.participants.phone }}"><span class="text-on-surface-variant/70">Phone:</span> {{ enrollment.participants.phone }}</div>
                 <div><span class="text-on-surface-variant/70">Age:</span> {{ enrollment.age }}</div>
