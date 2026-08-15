@@ -13,3 +13,4 @@ schema.sql
 .env.example
 .mcp.json
 CLAUDE.md
+check.sql
