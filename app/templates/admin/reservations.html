@@ -128,7 +128,7 @@
                             <label class="font-label-md text-on-surface-variant ml-1">Facility</label>
                             <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="pool_id" required>
                                 {% for pool in pools %}
-                                <option value="{{ pool.id }}" data-weekday-extra="{{ pool.weekday_extra_charge }}" data-weekend-extra="{{ pool.weekend_extra_charge }}" {{ 'selected' if pool.id == reservation.pool_id }}>{{ pool.name }}</option>
+                                <option value="{{ pool.id }}" {{ 'selected' if pool.id == reservation.pool_id }}>{{ pool.name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -171,14 +171,20 @@
                                 <option value="cancelled" {{ 'selected' if reservation.status == 'cancelled' }}>Cancelled</option>
                             </select>
                         </div>
+                        <div class="space-y-xs">
+                            <label class="font-label-md text-on-surface-variant ml-1">Extra Charge</label>
+                            <div class="relative">
+                                <span class="absolute left-lg top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
+                                <input class="w-full min-h-[40px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="0" name="extra_charge_amount" step="0.01" type="number" value="{{ reservation.extra_charge_amount }}">
+                            </div>
+                        </div>
                         <div class="space-y-1">
                             <label class="flex items-center gap-2 font-body-md text-on-surface-variant">
-                                <input class="rounded border-outline-variant text-primary-container focus:ring-primary-container" name="apply_extra_charge" type="checkbox" value="true" {{ 'checked' if reservation.extra_charge_applied }}>
-                                Apply extra charge
+                                <input class="rounded border-outline-variant text-primary-container focus:ring-primary-container" name="is_evening_stay" type="checkbox" value="true" {{ 'checked' if reservation.is_evening_stay }}>
+                                Evening stay
                             </label>
-                            <p class="extra-charge-hint text-xs text-on-surface-variant ml-1"></p>
                         </div>
-                        <p class="text-xs text-on-surface-variant ml-1">Price is recalculated automatically from the pool's weekday/weekend rate, plus the extra charge if applied.</p>
+                        <p class="text-xs text-on-surface-variant ml-1">Price is recalculated automatically from the pool's weekday/weekend rate. If the end date differs from the start date, the night-stay rate is used instead. Check "Evening stay" to use the pool's evening rate regardless.</p>
                         <div class="flex justify-end gap-3 pt-md">
                             <button class="px-lg py-2 bg-transparent border border-secondary text-secondary font-semibold rounded-xl hover:bg-secondary-container transition-colors" onclick="document.getElementById('edit-reservation-dialog-{{ reservation.id }}').close()" type="button">
                                 Cancel
@@ -258,7 +264,7 @@
                 <label class="font-label-md text-on-surface-variant ml-1">Facility</label>
                 <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="pool_id" required>
                     {% for pool in pools %}
-                    <option value="{{ pool.id }}" data-weekday-extra="{{ pool.weekday_extra_charge }}" data-weekend-extra="{{ pool.weekend_extra_charge }}">{{ pool.name }}</option>
+                    <option value="{{ pool.id }}">{{ pool.name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -301,14 +307,20 @@
                     <option value="cancelled">Cancelled</option>
                 </select>
             </div>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Extra Charge</label>
+                <div class="relative">
+                    <span class="absolute left-lg top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
+                    <input class="w-full min-h-[40px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="0" name="extra_charge_amount" placeholder="0.00" step="0.01" type="number">
+                </div>
+            </div>
             <div class="space-y-1">
                 <label class="flex items-center gap-2 font-body-md text-on-surface-variant">
-                    <input class="rounded border-outline-variant text-primary-container focus:ring-primary-container" name="apply_extra_charge" type="checkbox" value="true">
-                    Apply extra charge
+                    <input class="rounded border-outline-variant text-primary-container focus:ring-primary-container" name="is_evening_stay" type="checkbox" value="true">
+                    Evening stay
                 </label>
-                <p class="extra-charge-hint text-xs text-on-surface-variant ml-1"></p>
             </div>
-            <p class="text-xs text-on-surface-variant ml-1">Price is calculated automatically from the pool's weekday/weekend rate, plus the extra charge if applied. A reservation can span past midnight into the next day — just pick a later end date.</p>
+            <p class="text-xs text-on-surface-variant ml-1">Price is calculated automatically from the pool's weekday/weekend rate, plus any extra charge entered above. A reservation can span past midnight into the next day — just pick a later end date, and the night-stay rate will be used automatically. Check "Evening stay" to use the pool's evening rate regardless.</p>
             <div class="flex justify-end gap-3 pt-md">
                 <button class="px-lg py-2 bg-transparent border border-secondary text-secondary font-semibold rounded-xl hover:bg-secondary-container transition-colors" onclick="document.getElementById('new-reservation-dialog').close()" type="button">
                     Cancel
@@ -338,33 +350,6 @@ function wireReservationDateSync(startSelector, endSelector) {
 }
 wireReservationDateSync('.new-start-date', '.new-end-date');
 wireReservationDateSync('.edit-start-date', '.edit-end-date');
-
-function wireExtraChargeHints() {
-    document.querySelectorAll('.extra-charge-hint').forEach(function (hint) {
-        var form = hint.closest('form');
-        var poolSelect = form.querySelector('select[name="pool_id"]');
-        var dateInput = form.querySelector('input[name="start_date"]');
-        if (!poolSelect || !dateInput) return;
-        function update() {
-            var option = poolSelect.options[poolSelect.selectedIndex];
-            if (!option || !dateInput.value) {
-                hint.textContent = '';
-                return;
-            }
-            var weekday = new Date(dateInput.value + 'T00:00:00').getDay();
-            var isWeekend = weekday === 0 || weekday === 6;
-            var amount = parseFloat(isWeekend ? option.dataset.weekendExtra : option.dataset.weekdayExtra) || 0;
-            hint.textContent = amount > 0
-                ? 'Extra charge: $' + amount.toFixed(2) + ' (' + (isWeekend ? 'weekend' : 'weekday') + ' rate)'
-                : 'No extra charge configured for this pool on this day.';
-        }
-        poolSelect.addEventListener('change', update);
-        dateInput.addEventListener('change', update);
-        form.addEventListener('reset', function () { setTimeout(update, 0); });
-        update();
-    });
-}
-wireExtraChargeHints();
 </script>
 {% endif %}
 {% endblock %}

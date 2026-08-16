@@ -8,8 +8,6 @@ import time
 from collections import defaultdict, deque
 from datetime import date, datetime, timedelta
 from datetime import date as date_cls
-from urllib.parse import urlencode
-
 from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -38,18 +36,6 @@ PAGE_SIZE_OPTIONS = [25, 50, 100, 200, 500]
 DEFAULT_PAGE_SIZE = 25
 
 
-def _url_with(request: Request, **overrides) -> str:
-    """Build the current URL with some query params replaced, for pager/sort links."""
-    params = dict(request.query_params)
-    for key, value in overrides.items():
-        if value is None:
-            params.pop(key, None)
-        else:
-            params[key] = str(value)
-    query = urlencode(params)
-    return f"{request.url.path}?{query}" if query else request.url.path
-
-
 def _short_date(value) -> str:
     if not value:
         return "—"
@@ -74,16 +60,17 @@ def _parse_list_params(
     default_dir: str = "asc",
     sort_cookie: str | None = None,
     page_size_cookie: str | None = None,
+    page_cookie: str | None = None,
 ) -> tuple[int, int, str, str]:
-    """Parse page from query params; sort_by/sort_dir/page_size come from cookies.
+    """Parse page/sort_by/sort_dir/page_size, all from cookies.
 
-    Sort and page-size state are kept out of the URL (like the filter cookies) so
-    interacting with a list doesn't litter the address bar with query params. Page
-    number stays in the URL since it's meant to be a normal, linkable location.
+    This state is kept out of the URL (like the filter cookies) so interacting
+    with a list doesn't litter the address bar with query params.
     """
+    page_state = _get_filters_cookie(request, page_cookie) if page_cookie else {}
     try:
-        page = max(1, int(request.query_params.get("page", 1)))
-    except ValueError:
+        page = max(1, int(page_state.get("page", 1)))
+    except (TypeError, ValueError):
         page = 1
 
     page_size_state = _get_filters_cookie(request, page_size_cookie) if page_size_cookie else {}
@@ -205,6 +192,11 @@ PARTICIPANTS_PAGE_SIZE_COOKIE = "participants_page_size"
 ENROLLMENTS_PAGE_SIZE_COOKIE = "enrollments_page_size"
 PAYMENTS_PAGE_SIZE_COOKIE = "payments_page_size"
 
+CYCLES_PAGE_COOKIE = "cycles_page"
+PARTICIPANTS_PAGE_COOKIE = "participants_page"
+ENROLLMENTS_PAGE_COOKIE = "enrollments_page"
+PAYMENTS_PAGE_COOKIE = "payments_page"
+
 
 def _get_filters_cookie(request: Request, cookie_name: str) -> dict:
     """Filters are kept out of the URL — read them back from a cookie instead."""
@@ -218,25 +210,38 @@ def _get_filters_cookie(request: Request, cookie_name: str) -> dict:
         return {}
 
 
-def _set_filters_cookie_response(url: str, cookie_name: str, filters: dict) -> RedirectResponse:
+def _set_filters_cookie_response(
+    url: str, cookie_name: str, filters: dict, also_delete: list[str] | None = None
+) -> RedirectResponse:
     response = RedirectResponse(url=url, status_code=303)
     if filters:
         response.set_cookie(cookie_name, json.dumps(filters), httponly=True, samesite="lax")
     else:
         response.delete_cookie(cookie_name)
+    for extra_cookie in also_delete or []:
+        response.delete_cookie(extra_cookie)
     return response
 
 
 def _sort_redirect(
-    url: str, cookie_name: str, sortable_columns: dict, sort_by: str, sort_dir: str
+    url: str,
+    cookie_name: str,
+    sortable_columns: dict,
+    sort_by: str,
+    sort_dir: str,
+    page_cookie: str | None = None,
 ) -> RedirectResponse:
     """Validate sort_by/sort_dir and stash them in a cookie instead of the URL."""
     if sort_by not in sortable_columns or sort_dir not in ("asc", "desc"):
         return RedirectResponse(url=url, status_code=303)
-    return _set_filters_cookie_response(url, cookie_name, {"sort_by": sort_by, "sort_dir": sort_dir})
+    return _set_filters_cookie_response(
+        url, cookie_name, {"sort_by": sort_by, "sort_dir": sort_dir}, also_delete=[page_cookie] if page_cookie else None
+    )
 
 
-def _page_size_redirect(url: str, cookie_name: str, page_size: str) -> RedirectResponse:
+def _page_size_redirect(
+    url: str, cookie_name: str, page_size: str, page_cookie: str | None = None
+) -> RedirectResponse:
     """Validate page_size and stash it in a cookie instead of the URL."""
     try:
         size = int(page_size)
@@ -244,7 +249,20 @@ def _page_size_redirect(url: str, cookie_name: str, page_size: str) -> RedirectR
         return RedirectResponse(url=url, status_code=303)
     if size not in PAGE_SIZE_OPTIONS:
         return RedirectResponse(url=url, status_code=303)
-    return _set_filters_cookie_response(url, cookie_name, {"page_size": size})
+    return _set_filters_cookie_response(
+        url, cookie_name, {"page_size": size}, also_delete=[page_cookie] if page_cookie else None
+    )
+
+
+def _page_redirect(url: str, cookie_name: str, page: str) -> RedirectResponse:
+    """Validate page and stash it in a cookie instead of the URL."""
+    try:
+        value = int(page)
+    except ValueError:
+        return RedirectResponse(url=url, status_code=303)
+    if value < 1:
+        return RedirectResponse(url=url, status_code=303)
+    return _set_filters_cookie_response(url, cookie_name, {"page": value})
 
 
 def _reservations_redirect(date_iso: str, error: str | None = None) -> RedirectResponse:
@@ -256,7 +274,6 @@ def _reservations_redirect(date_iso: str, error: str | None = None) -> RedirectR
     return response
 
 
-templates.env.globals["url_with"] = _url_with
 templates.env.globals["PAGE_SIZE_OPTIONS"] = PAGE_SIZE_OPTIONS
 templates.env.filters["short_date"] = _short_date
 templates.env.filters["time12"] = _time12
@@ -889,6 +906,7 @@ def admin_cycles(request: Request):
         default_dir="desc",
         sort_cookie=CYCLES_SORT_COOKIE,
         page_size_cookie=CYCLES_PAGE_SIZE_COOKIE,
+        page_cookie=CYCLES_PAGE_COOKIE,
     )
     column = CYCLES_SORTABLE[sort_by]
 
@@ -928,12 +946,21 @@ def admin_cycles(request: Request):
 
 @admin_router.post("/admin/cycles/sort")
 def admin_cycles_set_sort(sort_by: str = Form(...), sort_dir: str = Form(...)):
-    return _sort_redirect("/admin/cycles", CYCLES_SORT_COOKIE, CYCLES_SORTABLE, sort_by, sort_dir)
+    return _sort_redirect(
+        "/admin/cycles", CYCLES_SORT_COOKIE, CYCLES_SORTABLE, sort_by, sort_dir, page_cookie=CYCLES_PAGE_COOKIE
+    )
 
 
 @admin_router.post("/admin/cycles/page-size")
 def admin_cycles_set_page_size(page_size: str = Form(...)):
-    return _page_size_redirect("/admin/cycles", CYCLES_PAGE_SIZE_COOKIE, page_size)
+    return _page_size_redirect(
+        "/admin/cycles", CYCLES_PAGE_SIZE_COOKIE, page_size, page_cookie=CYCLES_PAGE_COOKIE
+    )
+
+
+@admin_router.post("/admin/cycles/page")
+def admin_cycles_set_page(page: str = Form(...)):
+    return _page_redirect("/admin/cycles", CYCLES_PAGE_COOKIE, page)
 
 
 def _parse_cycle_schedule(
@@ -1104,6 +1131,7 @@ def admin_participants(request: Request):
         default_dir="asc",
         sort_cookie=PARTICIPANTS_SORT_COOKIE,
         page_size_cookie=PARTICIPANTS_PAGE_SIZE_COOKIE,
+        page_cookie=PARTICIPANTS_PAGE_COOKIE,
     )
     column = PARTICIPANTS_SORTABLE[sort_by]
 
@@ -1184,12 +1212,26 @@ def admin_participants_export(request: Request, format: str = "xlsx"):
 
 @admin_router.post("/admin/participants/sort")
 def admin_participants_set_sort(sort_by: str = Form(...), sort_dir: str = Form(...)):
-    return _sort_redirect("/admin/participants", PARTICIPANTS_SORT_COOKIE, PARTICIPANTS_SORTABLE, sort_by, sort_dir)
+    return _sort_redirect(
+        "/admin/participants",
+        PARTICIPANTS_SORT_COOKIE,
+        PARTICIPANTS_SORTABLE,
+        sort_by,
+        sort_dir,
+        page_cookie=PARTICIPANTS_PAGE_COOKIE,
+    )
 
 
 @admin_router.post("/admin/participants/page-size")
 def admin_participants_set_page_size(page_size: str = Form(...)):
-    return _page_size_redirect("/admin/participants", PARTICIPANTS_PAGE_SIZE_COOKIE, page_size)
+    return _page_size_redirect(
+        "/admin/participants", PARTICIPANTS_PAGE_SIZE_COOKIE, page_size, page_cookie=PARTICIPANTS_PAGE_COOKIE
+    )
+
+
+@admin_router.post("/admin/participants/page")
+def admin_participants_set_page(page: str = Form(...)):
+    return _page_redirect("/admin/participants", PARTICIPANTS_PAGE_COOKIE, page)
 
 
 @admin_router.post("/admin/participants/filters")
@@ -1216,12 +1258,16 @@ def admin_participants_set_filters(
     if phone_cleaned:
         filters["phone"] = phone_cleaned
 
-    return _set_filters_cookie_response("/admin/participants", PARTICIPANTS_FILTER_COOKIE, filters)
+    return _set_filters_cookie_response(
+        "/admin/participants", PARTICIPANTS_FILTER_COOKIE, filters, also_delete=[PARTICIPANTS_PAGE_COOKIE]
+    )
 
 
 @admin_router.post("/admin/participants/filters/clear")
 def admin_participants_clear_filters():
-    return _set_filters_cookie_response("/admin/participants", PARTICIPANTS_FILTER_COOKIE, {})
+    return _set_filters_cookie_response(
+        "/admin/participants", PARTICIPANTS_FILTER_COOKIE, {}, also_delete=[PARTICIPANTS_PAGE_COOKIE]
+    )
 
 
 @admin_router.post("/admin/participants/{participant_id}/edit")
@@ -1371,6 +1417,7 @@ def admin_enrollments(request: Request):
         default_dir="desc",
         sort_cookie=ENROLLMENTS_SORT_COOKIE,
         page_size_cookie=ENROLLMENTS_PAGE_SIZE_COOKIE,
+        page_cookie=ENROLLMENTS_PAGE_COOKIE,
     )
     column, foreign_table = ENROLLMENTS_SORTABLE[sort_by]
 
@@ -1547,12 +1594,26 @@ def admin_enrollments_export(request: Request, format: str = "xlsx"):
 
 @admin_router.post("/admin/enrollments/sort")
 def admin_enrollments_set_sort(sort_by: str = Form(...), sort_dir: str = Form(...)):
-    return _sort_redirect("/admin/enrollments", ENROLLMENTS_SORT_COOKIE, ENROLLMENTS_SORTABLE, sort_by, sort_dir)
+    return _sort_redirect(
+        "/admin/enrollments",
+        ENROLLMENTS_SORT_COOKIE,
+        ENROLLMENTS_SORTABLE,
+        sort_by,
+        sort_dir,
+        page_cookie=ENROLLMENTS_PAGE_COOKIE,
+    )
 
 
 @admin_router.post("/admin/enrollments/page-size")
 def admin_enrollments_set_page_size(page_size: str = Form(...)):
-    return _page_size_redirect("/admin/enrollments", ENROLLMENTS_PAGE_SIZE_COOKIE, page_size)
+    return _page_size_redirect(
+        "/admin/enrollments", ENROLLMENTS_PAGE_SIZE_COOKIE, page_size, page_cookie=ENROLLMENTS_PAGE_COOKIE
+    )
+
+
+@admin_router.post("/admin/enrollments/page")
+def admin_enrollments_set_page(page: str = Form(...)):
+    return _page_redirect("/admin/enrollments", ENROLLMENTS_PAGE_COOKIE, page)
 
 
 @admin_router.post("/admin/enrollments/filters")
@@ -1599,12 +1660,16 @@ def admin_enrollments_set_filters(
     if phone_cleaned:
         filters["phone"] = phone_cleaned
 
-    return _set_filters_cookie_response("/admin/enrollments", ENROLLMENTS_FILTER_COOKIE, filters)
+    return _set_filters_cookie_response(
+        "/admin/enrollments", ENROLLMENTS_FILTER_COOKIE, filters, also_delete=[ENROLLMENTS_PAGE_COOKIE]
+    )
 
 
 @admin_router.post("/admin/enrollments/filters/clear")
 def admin_enrollments_clear_filters():
-    return _set_filters_cookie_response("/admin/enrollments", ENROLLMENTS_FILTER_COOKIE, {})
+    return _set_filters_cookie_response(
+        "/admin/enrollments", ENROLLMENTS_FILTER_COOKIE, {}, also_delete=[ENROLLMENTS_PAGE_COOKIE]
+    )
 
 
 @admin_router.post("/admin/enrollments/{enrollment_id}/edit")
@@ -1694,6 +1759,36 @@ def _parse_reservation_window(
     return starts_at, ends_at
 
 
+def _resolve_base_price(
+    pool_id: int, start_date: date_cls, end_date: date_cls, is_evening_stay: bool
+) -> float:
+    """Pick the pool's price tier for a reservation.
+
+    The day/night rate is keyed off the checkout date when the stay spans multiple
+    calendar days (e.g. Friday -> Saturday uses the weekend rate), since that's the
+    day the guest actually wakes up on. Evening stay overrides the tier entirely.
+    """
+    is_night_stay = end_date != start_date
+    rate_date = end_date if is_night_stay else start_date
+    day_type = "weekend" if rate_date.weekday() >= 5 else "weekday"
+    pricing_rule = (
+        supabase.table("pricing_rules")
+        .select("price, night_price, evening_price")
+        .eq("pool_id", pool_id)
+        .eq("day_type", day_type)
+        .limit(1)
+        .execute()
+        .data
+    )
+    if not pricing_rule:
+        return 0
+    if is_evening_stay:
+        return pricing_rule[0]["evening_price"]
+    if is_night_stay:
+        return pricing_rule[0]["night_price"]
+    return pricing_rule[0]["price"]
+
+
 def _find_conflicting_cycle(pool_id: int, starts_at: str, ends_at: str) -> dict | None:
     """Find an active recurring cycle on this pool whose scheduled days/time overlap the reservation window."""
     start_dt = datetime.fromisoformat(starts_at)
@@ -1725,15 +1820,6 @@ def _find_conflicting_cycle(pool_id: int, starts_at: str, ends_at: str) -> dict 
 @admin_router.get("/admin/reservations")
 def admin_reservations(request: Request):
     pools = supabase.table("pools").select("id, name").order("name").execute().data
-    extra_charge_rules = (
-        supabase.table("pricing_rules").select("pool_id, day_type, extra_charge").execute().data
-    )
-    extra_charges_by_pool: dict[int, dict[str, float]] = {}
-    for rule in extra_charge_rules:
-        extra_charges_by_pool.setdefault(rule["pool_id"], {})[rule["day_type"]] = rule["extra_charge"]
-    for pool in pools:
-        pool["weekday_extra_charge"] = extra_charges_by_pool.get(pool["id"], {}).get("weekday", 0)
-        pool["weekend_extra_charge"] = extra_charges_by_pool.get(pool["id"], {}).get("weekend", 0)
 
     filters = _get_filters_cookie(request, RESERVATIONS_FILTER_COOKIE)
     try:
@@ -1758,7 +1844,8 @@ def admin_reservations(request: Request):
         supabase.table("reservations")
         .select(
             "id, pool_id, customer_name, customer_phone, starts_at, ends_at, "
-            "price_snapshot, base_price, extra_charge_applied, extra_charge_amount, status"
+            "price_snapshot, base_price, extra_charge_applied, extra_charge_amount, "
+            "is_evening_stay, status"
         )
         .lt("starts_at", day_end)
         .gt("ends_at", day_start)
@@ -1865,7 +1952,8 @@ def admin_reservations_create(
     end_date: date_cls = Form(...),
     end_time: str = Form(...),
     status: str = Form("pending"),
-    apply_extra_charge: bool = Form(False),
+    extra_charge_amount: float = Form(0),
+    is_evening_stay: bool = Form(False),
 ):
     try:
         starts_at, ends_at = _parse_reservation_window(start_date, start_time, end_date, end_time)
@@ -1879,18 +1967,7 @@ def admin_reservations_create(
             f"This pool is booked for the cycle \"{conflicting_cycle['name']}\" during that time. Pick a different time or pool.",
         )
 
-    day_type = "weekend" if start_date.weekday() >= 5 else "weekday"
-    pricing_rule = (
-        supabase.table("pricing_rules")
-        .select("price, extra_charge")
-        .eq("pool_id", pool_id)
-        .eq("day_type", day_type)
-        .limit(1)
-        .execute()
-        .data
-    )
-    base_price = pricing_rule[0]["price"] if pricing_rule else 0
-    extra_charge_amount = pricing_rule[0]["extra_charge"] if apply_extra_charge and pricing_rule else 0
+    base_price = _resolve_base_price(pool_id, start_date, end_date, is_evening_stay)
     price = base_price + extra_charge_amount
 
     try:
@@ -1902,8 +1979,9 @@ def admin_reservations_create(
             "ends_at": ends_at,
             "price_snapshot": price,
             "base_price": base_price,
-            "extra_charge_applied": apply_extra_charge,
+            "extra_charge_applied": extra_charge_amount > 0,
             "extra_charge_amount": extra_charge_amount,
+            "is_evening_stay": is_evening_stay,
             "status": status,
         }).execute()
     except APIError as exc:
@@ -1926,7 +2004,8 @@ def admin_reservations_edit(
     end_date: date_cls = Form(...),
     end_time: str = Form(...),
     status: str = Form(...),
-    apply_extra_charge: bool = Form(False),
+    extra_charge_amount: float = Form(0),
+    is_evening_stay: bool = Form(False),
 ):
     try:
         starts_at, ends_at = _parse_reservation_window(start_date, start_time, end_date, end_time)
@@ -1940,18 +2019,7 @@ def admin_reservations_edit(
             f"This pool is booked for the cycle \"{conflicting_cycle['name']}\" during that time. Pick a different time or pool.",
         )
 
-    day_type = "weekend" if start_date.weekday() >= 5 else "weekday"
-    pricing_rule = (
-        supabase.table("pricing_rules")
-        .select("price, extra_charge")
-        .eq("pool_id", pool_id)
-        .eq("day_type", day_type)
-        .limit(1)
-        .execute()
-        .data
-    )
-    base_price = pricing_rule[0]["price"] if pricing_rule else 0
-    extra_charge_amount = pricing_rule[0]["extra_charge"] if apply_extra_charge and pricing_rule else 0
+    base_price = _resolve_base_price(pool_id, start_date, end_date, is_evening_stay)
     price = base_price + extra_charge_amount
 
     try:
@@ -1963,8 +2031,9 @@ def admin_reservations_edit(
             "ends_at": ends_at,
             "price_snapshot": price,
             "base_price": base_price,
-            "extra_charge_applied": apply_extra_charge,
+            "extra_charge_applied": extra_charge_amount > 0,
             "extra_charge_amount": extra_charge_amount,
+            "is_evening_stay": is_evening_stay,
             "status": status,
         }).eq("id", reservation_id).execute()
     except APIError as exc:
@@ -2055,6 +2124,7 @@ def admin_payments(request: Request):
         default_dir="desc",
         sort_cookie=PAYMENTS_SORT_COOKIE,
         page_size_cookie=PAYMENTS_PAGE_SIZE_COOKIE,
+        page_cookie=PAYMENTS_PAGE_COOKIE,
     )
     column = PAYMENTS_SORTABLE[sort_by]
 
@@ -2159,12 +2229,26 @@ def admin_payments(request: Request):
 
 @admin_router.post("/admin/payments/sort")
 def admin_payments_set_sort(sort_by: str = Form(...), sort_dir: str = Form(...)):
-    return _sort_redirect("/admin/payments", PAYMENTS_SORT_COOKIE, PAYMENTS_SORTABLE, sort_by, sort_dir)
+    return _sort_redirect(
+        "/admin/payments",
+        PAYMENTS_SORT_COOKIE,
+        PAYMENTS_SORTABLE,
+        sort_by,
+        sort_dir,
+        page_cookie=PAYMENTS_PAGE_COOKIE,
+    )
 
 
 @admin_router.post("/admin/payments/page-size")
 def admin_payments_set_page_size(page_size: str = Form(...)):
-    return _page_size_redirect("/admin/payments", PAYMENTS_PAGE_SIZE_COOKIE, page_size)
+    return _page_size_redirect(
+        "/admin/payments", PAYMENTS_PAGE_SIZE_COOKIE, page_size, page_cookie=PAYMENTS_PAGE_COOKIE
+    )
+
+
+@admin_router.post("/admin/payments/page")
+def admin_payments_set_page(page: str = Form(...)):
+    return _page_redirect("/admin/payments", PAYMENTS_PAGE_COOKIE, page)
 
 
 @admin_router.post("/admin/payments/filters")
@@ -2192,12 +2276,16 @@ def admin_payments_set_filters(
     if source in PAYMENT_SOURCES:
         filters["source"] = source
 
-    return _set_filters_cookie_response("/admin/payments", PAYMENTS_FILTER_COOKIE, filters)
+    return _set_filters_cookie_response(
+        "/admin/payments", PAYMENTS_FILTER_COOKIE, filters, also_delete=[PAYMENTS_PAGE_COOKIE]
+    )
 
 
 @admin_router.post("/admin/payments/filters/clear")
 def admin_payments_clear_filters():
-    return _set_filters_cookie_response("/admin/payments", PAYMENTS_FILTER_COOKIE, {})
+    return _set_filters_cookie_response(
+        "/admin/payments", PAYMENTS_FILTER_COOKIE, {}, also_delete=[PAYMENTS_PAGE_COOKIE]
+    )
 
 
 @admin_router.post("/admin/payments/{payment_id}/delete")
@@ -2210,7 +2298,10 @@ def admin_payments_delete(payment_id: int):
 def admin_settings(request: Request):
     pools = supabase.table("pools").select("id, name, capacity, is_active").order("name").execute().data
     pricing_rules = (
-        supabase.table("pricing_rules").select("pool_id, day_type, price, extra_charge").execute().data
+        supabase.table("pricing_rules")
+        .select("pool_id, day_type, price, night_price, evening_price")
+        .execute()
+        .data
     )
 
     rules_by_pool: dict[int, dict[str, dict]] = {}
@@ -2221,9 +2312,11 @@ def admin_settings(request: Request):
         weekday_rule = rules_by_pool.get(pool["id"], {}).get("weekday")
         weekend_rule = rules_by_pool.get(pool["id"], {}).get("weekend")
         pool["weekday_price"] = weekday_rule["price"] if weekday_rule else None
-        pool["weekday_extra_charge"] = weekday_rule["extra_charge"] if weekday_rule else 0
+        pool["weekday_night_price"] = weekday_rule["night_price"] if weekday_rule else 0
+        pool["weekday_evening_price"] = weekday_rule["evening_price"] if weekday_rule else 0
         pool["weekend_price"] = weekend_rule["price"] if weekend_rule else None
-        pool["weekend_extra_charge"] = weekend_rule["extra_charge"] if weekend_rule else 0
+        pool["weekend_night_price"] = weekend_rule["night_price"] if weekend_rule else 0
+        pool["weekend_evening_price"] = weekend_rule["evening_price"] if weekend_rule else 0
 
     return templates.TemplateResponse(
         request,
@@ -2245,7 +2338,9 @@ def admin_settings_toggle_pool_active(pool_id: int):
     return RedirectResponse(url="/admin/settings", status_code=303)
 
 
-def _upsert_pricing_rule(pool_id: int, day_type: str, price: float, extra_charge: float) -> None:
+def _upsert_pricing_rule(
+    pool_id: int, day_type: str, price: float, night_price: float, evening_price: float
+) -> None:
     existing = (
         supabase.table("pricing_rules")
         .select("id")
@@ -2256,11 +2351,17 @@ def _upsert_pricing_rule(pool_id: int, day_type: str, price: float, extra_charge
     )
     if existing:
         supabase.table("pricing_rules").update(
-            {"price": price, "extra_charge": extra_charge}
+            {"price": price, "night_price": night_price, "evening_price": evening_price}
         ).eq("id", existing[0]["id"]).execute()
     else:
         supabase.table("pricing_rules").insert(
-            {"pool_id": pool_id, "day_type": day_type, "price": price, "extra_charge": extra_charge}
+            {
+                "pool_id": pool_id,
+                "day_type": day_type,
+                "price": price,
+                "night_price": night_price,
+                "evening_price": evening_price,
+            }
         ).execute()
 
 
@@ -2269,11 +2370,13 @@ def admin_settings_update_pricing(
     pool_id: int,
     weekday_price: float = Form(...),
     weekend_price: float = Form(...),
-    weekday_extra_charge: float = Form(0),
-    weekend_extra_charge: float = Form(0),
+    weekday_night_price: float = Form(0),
+    weekend_night_price: float = Form(0),
+    weekday_evening_price: float = Form(0),
+    weekend_evening_price: float = Form(0),
 ):
-    _upsert_pricing_rule(pool_id, "weekday", weekday_price, weekday_extra_charge)
-    _upsert_pricing_rule(pool_id, "weekend", weekend_price, weekend_extra_charge)
+    _upsert_pricing_rule(pool_id, "weekday", weekday_price, weekday_night_price, weekday_evening_price)
+    _upsert_pricing_rule(pool_id, "weekend", weekend_price, weekend_night_price, weekend_evening_price)
     return RedirectResponse(url="/admin/settings", status_code=303)
 
 

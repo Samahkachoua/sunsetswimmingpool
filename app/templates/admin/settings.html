@@ -38,16 +38,24 @@
                 <span class="font-title-md text-primary">{{ "$%.2f"|format(pool.weekday_price) if pool.weekday_price is not none else "—" }}</span>
             </div>
             <div class="flex justify-between items-center">
-                <span class="font-caption text-caption text-on-surface-variant">+ Weekday Extra Charge</span>
-                <span class="font-caption text-caption text-secondary">${{ "%.2f"|format(pool.weekday_extra_charge) }}</span>
+                <span class="font-caption text-caption text-on-surface-variant">Weekday Night Stay</span>
+                <span class="font-caption text-caption text-secondary">${{ "%.2f"|format(pool.weekday_night_price) }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="font-caption text-caption text-on-surface-variant">Weekday Evening Stay</span>
+                <span class="font-caption text-caption text-secondary">${{ "%.2f"|format(pool.weekday_evening_price) }}</span>
             </div>
             <div class="flex justify-between items-center">
                 <span class="font-label-md text-on-surface-variant">Weekend Price</span>
                 <span class="font-title-md text-primary">{{ "$%.2f"|format(pool.weekend_price) if pool.weekend_price is not none else "—" }}</span>
             </div>
             <div class="flex justify-between items-center">
-                <span class="font-caption text-caption text-on-surface-variant">+ Weekend Extra Charge</span>
-                <span class="font-caption text-caption text-secondary">${{ "%.2f"|format(pool.weekend_extra_charge) }}</span>
+                <span class="font-caption text-caption text-on-surface-variant">Weekend Night Stay</span>
+                <span class="font-caption text-caption text-secondary">${{ "%.2f"|format(pool.weekend_night_price) }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="font-caption text-caption text-on-surface-variant">Weekend Evening Stay</span>
+                <span class="font-caption text-caption text-secondary">${{ "%.2f"|format(pool.weekend_evening_price) }}</span>
             </div>
         </div>
         <div class="flex gap-2">
@@ -79,12 +87,18 @@
                     </div>
                 </div>
                 <div class="space-y-xs">
-                    <label class="font-label-md text-on-surface-variant ml-1">Weekday Extra Charge</label>
+                    <label class="font-label-md text-on-surface-variant ml-1">Weekday Night Stay Price</label>
                     <div class="relative">
                         <span class="absolute left-lg top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
-                        <input class="w-full min-h-[40px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="0" name="weekday_extra_charge" required step="0.01" type="number" value="{{ pool.weekday_extra_charge }}">
+                        <input class="w-full min-h-[40px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="0" name="weekday_night_price" required step="0.01" type="number" value="{{ pool.weekday_night_price }}">
                     </div>
-                    <p class="text-xs text-on-surface-variant ml-1">Optional add-on the admin can apply per weekday reservation.</p>
+                </div>
+                <div class="space-y-xs">
+                    <label class="font-label-md text-on-surface-variant ml-1">Weekday Evening Stay Price</label>
+                    <div class="relative">
+                        <span class="absolute left-lg top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
+                        <input class="w-full min-h-[40px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="0" name="weekday_evening_price" required step="0.01" type="number" value="{{ pool.weekday_evening_price }}">
+                    </div>
                 </div>
                 <div class="space-y-xs">
                     <label class="font-label-md text-on-surface-variant ml-1">Weekend Price</label>
@@ -94,12 +108,18 @@
                     </div>
                 </div>
                 <div class="space-y-xs">
-                    <label class="font-label-md text-on-surface-variant ml-1">Weekend Extra Charge</label>
+                    <label class="font-label-md text-on-surface-variant ml-1">Weekend Night Stay Price</label>
                     <div class="relative">
                         <span class="absolute left-lg top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
-                        <input class="w-full min-h-[40px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="0" name="weekend_extra_charge" required step="0.01" type="number" value="{{ pool.weekend_extra_charge }}">
+                        <input class="w-full min-h-[40px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="0" name="weekend_night_price" required step="0.01" type="number" value="{{ pool.weekend_night_price }}">
                     </div>
-                    <p class="text-xs text-on-surface-variant ml-1">Optional add-on the admin can apply per weekend reservation.</p>
+                </div>
+                <div class="space-y-xs">
+                    <label class="font-label-md text-on-surface-variant ml-1">Weekend Evening Stay Price</label>
+                    <div class="relative">
+                        <span class="absolute left-lg top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
+                        <input class="w-full min-h-[40px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="0" name="weekend_evening_price" required step="0.01" type="number" value="{{ pool.weekend_evening_price }}">
+                    </div>
                 </div>
                 <div class="flex justify-end gap-3 pt-md">
                     <button class="px-lg py-2 bg-transparent border border-secondary text-secondary font-semibold rounded-xl hover:bg-secondary-container transition-colors" onclick="document.getElementById('price-dialog-{{ pool.id }}').close()" type="button">
