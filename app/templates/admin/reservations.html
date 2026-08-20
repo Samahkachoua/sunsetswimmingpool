@@ -364,8 +364,6 @@
                         {% endif %}
                     </td>
                 </tr>
-                {{ m.reservation_edit_dialog(reservation, pools) }}
-                {{ m.reservation_payment_dialog(reservation, today_iso) }}
                 {% else %}
                 <tr>
                     <td class="px-6 py-8 text-center font-body-md text-on-surface-variant" colspan="7">No reservations found.</td>
@@ -409,6 +407,11 @@
         <div class="px-lg py-8 text-center font-body-md text-on-surface-variant">No reservations found.</div>
         {% endfor %}
     </div>
+
+    {% for reservation in list_reservations %}
+    {{ m.reservation_edit_dialog(reservation, pools) }}
+    {{ m.reservation_payment_dialog(reservation, today_iso) }}
+    {% endfor %}
 
     {% include "admin/_pager.html" %}
 </div>
