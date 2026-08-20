@@ -181,21 +181,25 @@ ENROLLMENTS_FILTER_COOKIE = "enrollments_filters"
 PARTICIPANTS_FILTER_COOKIE = "participants_filters"
 PAYMENTS_FILTER_COOKIE = "payments_filters"
 RESERVATIONS_FILTER_COOKIE = "reservations_filters"
+RESERVATIONS_LIST_FILTER_COOKIE = "reservations_list_filters"
 
 CYCLES_SORT_COOKIE = "cycles_sort"
 PARTICIPANTS_SORT_COOKIE = "participants_sort"
 ENROLLMENTS_SORT_COOKIE = "enrollments_sort"
 PAYMENTS_SORT_COOKIE = "payments_sort"
+RESERVATIONS_LIST_SORT_COOKIE = "reservations_list_sort"
 
 CYCLES_PAGE_SIZE_COOKIE = "cycles_page_size"
 PARTICIPANTS_PAGE_SIZE_COOKIE = "participants_page_size"
 ENROLLMENTS_PAGE_SIZE_COOKIE = "enrollments_page_size"
 PAYMENTS_PAGE_SIZE_COOKIE = "payments_page_size"
+RESERVATIONS_LIST_PAGE_SIZE_COOKIE = "reservations_list_page_size"
 
 CYCLES_PAGE_COOKIE = "cycles_page"
 PARTICIPANTS_PAGE_COOKIE = "participants_page"
 ENROLLMENTS_PAGE_COOKIE = "enrollments_page"
 PAYMENTS_PAGE_COOKIE = "payments_page"
+RESERVATIONS_LIST_PAGE_COOKIE = "reservations_list_page"
 
 
 def _get_filters_cookie(request: Request, cookie_name: str) -> dict:
@@ -265,13 +269,22 @@ def _page_redirect(url: str, cookie_name: str, page: str) -> RedirectResponse:
     return _set_filters_cookie_response(url, cookie_name, {"page": value})
 
 
-def _reservations_redirect(date_iso: str, error: str | None = None) -> RedirectResponse:
+RESERVATIONS_VIEWS = ("day", "week", "month", "list")
+RESERVATIONS_CALENDAR_VIEWS = ("day", "week", "month")
+
+
+def _update_reservations_state(request: Request, error: str | None = None, **updates) -> RedirectResponse:
+    """Merge updates into the reservations filter cookie (date/view/pool_id) instead of overwriting it."""
     url = "/admin/reservations" + (f"?error={error}" if error else "")
+    state = _get_filters_cookie(request, RESERVATIONS_FILTER_COOKIE)
+    state.update(updates)
     response = RedirectResponse(url=url, status_code=303)
-    response.set_cookie(
-        RESERVATIONS_FILTER_COOKIE, json.dumps({"date": date_iso}), httponly=True, samesite="lax"
-    )
+    response.set_cookie(RESERVATIONS_FILTER_COOKIE, json.dumps(state), httponly=True, samesite="lax")
     return response
+
+
+def _reservations_redirect(request: Request, date_iso: str, error: str | None = None) -> RedirectResponse:
+    return _update_reservations_state(request, error=error, date=date_iso)
 
 
 templates.env.globals["PAGE_SIZE_OPTIONS"] = PAGE_SIZE_OPTIONS
@@ -1817,42 +1830,36 @@ def _find_conflicting_cycle(pool_id: int, starts_at: str, ends_at: str) -> dict 
     return None
 
 
-@admin_router.get("/admin/reservations")
-def admin_reservations(request: Request):
-    pools = supabase.table("pools").select("id, name").order("name").execute().data
+def _enrich_reservation(reservation: dict, paid_by_reservation: dict) -> None:
+    reservation["is_cycle"] = False
+    reservation["time_range"] = format_time_range(reservation["starts_at"], reservation["ends_at"])
+    reservation["paid"] = paid_by_reservation.get(reservation["id"], 0)
+    reservation["remaining"] = reservation["price_snapshot"] - reservation["paid"]
+    starts_dt = datetime.fromisoformat(reservation["starts_at"])
+    ends_dt = datetime.fromisoformat(reservation["ends_at"])
+    reservation["start_date"] = starts_dt.date().isoformat()
+    reservation["start_time"] = starts_dt.strftime("%H:%M")
+    reservation["end_date"] = ends_dt.date().isoformat()
+    reservation["end_time"] = ends_dt.strftime("%H:%M")
+    reservation["phone_local"] = reservation["customer_phone"].removeprefix("+961").lstrip()
 
-    filters = _get_filters_cookie(request, RESERVATIONS_FILTER_COOKIE)
-    try:
-        selected_date = date_cls.fromisoformat(filters.get("date", ""))
-    except (ValueError, TypeError):
-        selected_date = date_cls.today()
 
-    if not pools:
-        return templates.TemplateResponse(
-            request,
-            "admin/reservations.html",
-            {"pools": pools, "error": request.query_params.get("error")},
-        )
-
-    day_start = datetime.combine(selected_date, datetime.min.time()).isoformat()
-    day_end = datetime.combine(selected_date + timedelta(days=1), datetime.min.time()).isoformat()
-
-    # A reservation shows on this day if its window overlaps the day at all —
-    # not just when it starts here — so overnight bookings (e.g. 11 PM to
-    # noon the next day) also appear on the day they run into.
-    reservations = (
+def _fetch_reservations_in_range(range_start: datetime, range_end: datetime, pool_id: int | None = None) -> list[dict]:
+    """Reservations whose window overlaps [range_start, range_end), enriched for display."""
+    query = (
         supabase.table("reservations")
         .select(
             "id, pool_id, customer_name, customer_phone, starts_at, ends_at, "
             "price_snapshot, base_price, extra_charge_applied, extra_charge_amount, "
             "is_evening_stay, status"
         )
-        .lt("starts_at", day_end)
-        .gt("ends_at", day_start)
+        .lt("starts_at", range_end.isoformat())
+        .gt("ends_at", range_start.isoformat())
         .order("starts_at")
-        .execute()
-        .data
     )
+    if pool_id is not None:
+        query = query.eq("pool_id", pool_id)
+    reservations = query.execute().data
 
     reservation_ids = [reservation["id"] for reservation in reservations]
     paid_by_reservation = {}
@@ -1870,80 +1877,397 @@ def admin_reservations(request: Request):
                 paid_by_reservation.get(payment["payable_id"], 0) + payment["amount"]
             )
 
-    reservations_by_pool: dict[int, list] = {}
     for reservation in reservations:
-        reservation["is_cycle"] = False
-        reservation["time_range"] = format_time_range(reservation["starts_at"], reservation["ends_at"])
-        reservation["paid"] = paid_by_reservation.get(reservation["id"], 0)
-        reservation["remaining"] = reservation["price_snapshot"] - reservation["paid"]
-        starts_dt = datetime.fromisoformat(reservation["starts_at"])
-        ends_dt = datetime.fromisoformat(reservation["ends_at"])
-        reservation["start_date"] = starts_dt.date().isoformat()
-        reservation["start_time"] = starts_dt.strftime("%H:%M")
-        reservation["end_date"] = ends_dt.date().isoformat()
-        reservation["end_time"] = ends_dt.strftime("%H:%M")
-        reservation["phone_local"] = reservation["customer_phone"].removeprefix("+961").lstrip()
-        reservations_by_pool.setdefault(reservation["pool_id"], []).append(reservation)
+        _enrich_reservation(reservation, paid_by_reservation)
+    return reservations
+
+
+def _cycle_sessions_by_day(range_start: date_cls, range_end: date_cls, pool_id: int | None = None) -> dict[str, list]:
+    """Expand recurring cycles active in [range_start, range_end) into read-only per-day sessions."""
+    query = (
+        supabase.table("cycles")
+        .select("id, name, pool_id, start_date, end_date, schedule_days, schedule_start_time, schedule_end_time")
+        .lte("start_date", (range_end - timedelta(days=1)).isoformat())
+        .gte("end_date", range_start.isoformat())
+    )
+    if pool_id is not None:
+        query = query.eq("pool_id", pool_id)
+    cycles = query.execute().data
+
+    sessions_by_day: dict[str, list] = defaultdict(list)
+    day = range_start
+    while day < range_end:
+        for cycle in cycles:
+            if cycle["pool_id"] is None or not cycle["schedule_start_time"] or not cycle["schedule_end_time"]:
+                continue
+            if day.weekday() not in cycle["schedule_days"]:
+                continue
+            if not (cycle["start_date"] <= day.isoformat() <= cycle["end_date"]):
+                continue
+            start_time = cycle["schedule_start_time"][:5]
+            end_time = cycle["schedule_end_time"][:5]
+            sessions_by_day[day.isoformat()].append({
+                "is_cycle": True,
+                "pool_id": cycle["pool_id"],
+                "cycle_name": cycle["name"],
+                "start_time": start_time,
+                "end_time": end_time,
+                "time_range": format_time_range(
+                    f"{day.isoformat()}T{start_time}:00", f"{day.isoformat()}T{end_time}:00"
+                ),
+            })
+        day += timedelta(days=1)
+    return sessions_by_day
+
+
+def _group_reservations_by_day(reservations: list[dict], range_start: date_cls, num_days: int) -> dict[str, list]:
+    by_day: dict[str, list] = defaultdict(list)
+    for offset in range(num_days):
+        day = range_start + timedelta(days=offset)
+        day_start = datetime.combine(day, datetime.min.time())
+        day_end = day_start + timedelta(days=1)
+        for reservation in reservations:
+            # Compare wall-clock values only (strip tzinfo) — the rest of this module
+            # treats starts_at/ends_at's clock digits as local time throughout, e.g.
+            # _enrich_reservation's strftime calls, so day-bucketing must match that.
+            starts_dt = datetime.fromisoformat(reservation["starts_at"]).replace(tzinfo=None)
+            ends_dt = datetime.fromisoformat(reservation["ends_at"]).replace(tzinfo=None)
+            if starts_dt < day_end and ends_dt > day_start:
+                by_day[day.isoformat()].append(reservation)
+    return by_day
+
+
+def _build_day_view(selected_date: date_cls) -> dict:
+    day_start_dt = datetime.combine(selected_date, datetime.min.time())
+    day_end_dt = day_start_dt + timedelta(days=1)
+
+    # A reservation shows on this day if its window overlaps the day at all —
+    # not just when it starts here — so overnight bookings (e.g. 11 PM to
+    # noon the next day) also appear on the day they run into.
+    reservations = _fetch_reservations_in_range(day_start_dt, day_end_dt)
+
+    reservations_by_pool: dict[int, list] = defaultdict(list)
+    for reservation in reservations:
+        reservations_by_pool[reservation["pool_id"]].append(reservation)
 
     # Cycles with a matching recurring schedule show up as read-only blocks
     # alongside real reservations for their pool on days they run.
-    cycles_today = (
-        supabase.table("cycles")
-        .select("id, name, pool_id, schedule_start_time, schedule_end_time")
-        .lte("start_date", selected_date.isoformat())
-        .gte("end_date", selected_date.isoformat())
-        .contains("schedule_days", [str(selected_date.weekday())])
-        .execute()
-        .data
-    )
-    for cycle in cycles_today:
-        if cycle["pool_id"] is None or not cycle["schedule_start_time"] or not cycle["schedule_end_time"]:
-            continue
-        start_time = cycle["schedule_start_time"][:5]
-        end_time = cycle["schedule_end_time"][:5]
-        reservations_by_pool.setdefault(cycle["pool_id"], []).append({
-            "is_cycle": True,
-            "cycle_name": cycle["name"],
-            "start_time": start_time,
-            "end_time": end_time,
-            "time_range": format_time_range(
-                f"{selected_date.isoformat()}T{start_time}:00",
-                f"{selected_date.isoformat()}T{end_time}:00",
-            ),
-        })
+    cycles_today = _cycle_sessions_by_day(selected_date, selected_date + timedelta(days=1))
+    for session in cycles_today.get(selected_date.isoformat(), []):
+        reservations_by_pool[session["pool_id"]].append(session)
 
     for pool_reservations in reservations_by_pool.values():
         pool_reservations.sort(key=lambda entry: entry["start_time"])
 
-    return templates.TemplateResponse(
-        request,
-        "admin/reservations.html",
-        {
-            "pools": pools,
-            "reservations_by_pool": reservations_by_pool,
-            "status_classes": RESERVATION_STATUS_CLASSES,
-            "display_date": selected_date.strftime("%B %d, %Y"),
-            "weekday_name": selected_date.strftime("%A"),
-            "iso_date": selected_date.isoformat(),
-            "prev_date": (selected_date - timedelta(days=1)).isoformat(),
-            "next_date": (selected_date + timedelta(days=1)).isoformat(),
-            "today_iso": date_cls.today().isoformat(),
-            "error": request.query_params.get("error"),
-        },
+    return {
+        "reservations_by_pool": reservations_by_pool,
+        "display_date": selected_date.strftime("%B %d, %Y"),
+        "weekday_name": selected_date.strftime("%A"),
+        "prev_date": (selected_date - timedelta(days=1)).isoformat(),
+        "next_date": (selected_date + timedelta(days=1)).isoformat(),
+    }
+
+
+def _build_week_view(selected_date: date_cls, pool_id: int) -> dict:
+    week_start = selected_date - timedelta(days=selected_date.weekday())
+    week_end = week_start + timedelta(days=7)
+
+    reservations = _fetch_reservations_in_range(
+        datetime.combine(week_start, datetime.min.time()),
+        datetime.combine(week_end, datetime.min.time()),
+        pool_id=pool_id,
     )
+    reservations_by_day = _group_reservations_by_day(reservations, week_start, 7)
+    cycles_by_day = _cycle_sessions_by_day(week_start, week_end, pool_id=pool_id)
+
+    today = date_cls.today()
+    days = []
+    for offset in range(7):
+        day = week_start + timedelta(days=offset)
+        day_iso = day.isoformat()
+        entries = reservations_by_day.get(day_iso, []) + cycles_by_day.get(day_iso, [])
+        entries.sort(key=lambda entry: entry["start_time"])
+        days.append({
+            "date": day_iso,
+            "label": day.strftime("%a"),
+            "day_number": day.day,
+            "is_today": day == today,
+            "entries": entries,
+        })
+
+    return {
+        "week_days": days,
+        "week_label": f"{week_start.strftime('%b %d')} – {(week_end - timedelta(days=1)).strftime('%b %d, %Y')}",
+        "prev_week_date": (week_start - timedelta(days=7)).isoformat(),
+        "next_week_date": (week_start + timedelta(days=7)).isoformat(),
+    }
+
+
+def _build_month_view(selected_date: date_cls, pool_id: int) -> dict:
+    month_start = selected_date.replace(day=1)
+    next_month_start = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
+    grid_start = month_start - timedelta(days=month_start.weekday())
+    num_weeks = math.ceil((next_month_start - grid_start).days / 7)
+    grid_end = grid_start + timedelta(days=num_weeks * 7)
+
+    reservations = _fetch_reservations_in_range(
+        datetime.combine(grid_start, datetime.min.time()),
+        datetime.combine(grid_end, datetime.min.time()),
+        pool_id=pool_id,
+    )
+    reservations_by_day = _group_reservations_by_day(reservations, grid_start, num_weeks * 7)
+    cycles_by_day = _cycle_sessions_by_day(grid_start, grid_end, pool_id=pool_id)
+
+    today = date_cls.today()
+    weeks = []
+    day = grid_start
+    for _ in range(num_weeks):
+        week = []
+        for _ in range(7):
+            day_iso = day.isoformat()
+            entries = reservations_by_day.get(day_iso, []) + cycles_by_day.get(day_iso, [])
+            entries.sort(key=lambda entry: entry["start_time"])
+            week.append({
+                "date": day_iso,
+                "day_number": day.day,
+                "in_month": day.month == selected_date.month,
+                "is_today": day == today,
+                "entries": entries,
+            })
+            day += timedelta(days=1)
+        weeks.append(week)
+
+    prev_month_date = (month_start - timedelta(days=1)).replace(day=1)
+    return {
+        "month_weeks": weeks,
+        "month_label": selected_date.strftime("%B %Y"),
+        "prev_month_date": prev_month_date.isoformat(),
+        "next_month_date": next_month_start.isoformat(),
+    }
+
+
+RESERVATIONS_LIST_SORTABLE = {
+    "customer_name": "customer_name",
+    "starts_at": "starts_at",
+    "price_snapshot": "price_snapshot",
+    "status": "status",
+}
+
+
+def _reservations_list_apply_filters(query, filters: dict):
+    if filters.get("date_from"):
+        query = query.gte("starts_at", f"{filters['date_from']}T00:00:00")
+    if filters.get("date_to"):
+        query = query.lte("starts_at", f"{filters['date_to']}T23:59:59")
+    if filters.get("pool_id"):
+        query = query.eq("pool_id", filters["pool_id"])
+    if filters.get("status"):
+        query = query.eq("status", filters["status"])
+    return query
+
+
+def _build_reservations_list_view(request: Request) -> dict:
+    page, page_size, sort_by, sort_dir = _parse_list_params(
+        request,
+        RESERVATIONS_LIST_SORTABLE,
+        default_sort="starts_at",
+        default_dir="desc",
+        sort_cookie=RESERVATIONS_LIST_SORT_COOKIE,
+        page_size_cookie=RESERVATIONS_LIST_PAGE_SIZE_COOKIE,
+        page_cookie=RESERVATIONS_LIST_PAGE_COOKIE,
+    )
+    column = RESERVATIONS_LIST_SORTABLE[sort_by]
+
+    filters = _get_filters_cookie(request, RESERVATIONS_LIST_FILTER_COOKIE)
+
+    def build_query(start, end):
+        query = _reservations_list_apply_filters(
+            supabase.table("reservations").select(
+                "id, pool_id, customer_name, customer_phone, starts_at, ends_at, "
+                "price_snapshot, base_price, extra_charge_applied, extra_charge_amount, "
+                "is_evening_stay, status, pools(name)",
+                count="exact",
+            ),
+            filters,
+        )
+        return query.order(column, desc=(sort_dir == "desc")).range(start, end).execute()
+
+    reservations, total, page, total_pages = _fetch_page(build_query, page, page_size)
+
+    reservation_ids = [reservation["id"] for reservation in reservations]
+    paid_by_reservation = {}
+    if reservation_ids:
+        payments = (
+            supabase.table("payments")
+            .select("payable_id, amount")
+            .eq("payable_type", "reservation")
+            .in_("payable_id", reservation_ids)
+            .execute()
+            .data
+        )
+        for payment in payments:
+            paid_by_reservation[payment["payable_id"]] = (
+                paid_by_reservation.get(payment["payable_id"], 0) + payment["amount"]
+            )
+
+    for reservation in reservations:
+        _enrich_reservation(reservation, paid_by_reservation)
+        reservation["pool_name"] = reservation["pools"]["name"] if reservation.get("pools") else "—"
+
+    return {
+        "list_reservations": reservations,
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "total_pages": total_pages,
+        "sort_by": sort_by,
+        "sort_dir": sort_dir,
+        "list_date_from": filters.get("date_from", ""),
+        "list_date_to": filters.get("date_to", ""),
+        "list_pool_id": filters.get("pool_id", ""),
+        "list_status": filters.get("status", ""),
+    }
+
+
+@admin_router.get("/admin/reservations")
+def admin_reservations(request: Request):
+    pools = supabase.table("pools").select("id, name").order("name").execute().data
+
+    filters = _get_filters_cookie(request, RESERVATIONS_FILTER_COOKIE)
+    try:
+        selected_date = date_cls.fromisoformat(filters.get("date", ""))
+    except (ValueError, TypeError):
+        selected_date = date_cls.today()
+
+    view = filters.get("view", "day")
+    if view not in RESERVATIONS_VIEWS:
+        view = "day"
+
+    if not pools:
+        return templates.TemplateResponse(
+            request,
+            "admin/reservations.html",
+            {"pools": pools, "view": view, "error": request.query_params.get("error")},
+        )
+
+    pool_ids = [pool["id"] for pool in pools]
+    selected_pool_id = filters.get("pool_id")
+    if selected_pool_id not in pool_ids:
+        selected_pool_id = pool_ids[0]
+
+    context = {
+        "pools": pools,
+        "status_classes": RESERVATION_STATUS_CLASSES,
+        "view": view,
+        "selected_pool_id": selected_pool_id,
+        "iso_date": selected_date.isoformat(),
+        "today_iso": date_cls.today().isoformat(),
+        "error": request.query_params.get("error"),
+    }
+
+    if view == "week":
+        context.update(_build_week_view(selected_date, selected_pool_id))
+    elif view == "month":
+        context.update(_build_month_view(selected_date, selected_pool_id))
+    elif view == "list":
+        context.update(_build_reservations_list_view(request))
+    else:
+        context.update(_build_day_view(selected_date))
+
+    return templates.TemplateResponse(request, "admin/reservations.html", context)
 
 
 @admin_router.post("/admin/reservations/filters")
-def admin_reservations_set_date(date: str = Form("")):
+def admin_reservations_set_date(request: Request, date: str = Form(""), view: str = Form("")):
     try:
         date_iso = date_cls.fromisoformat(date).isoformat()
     except (ValueError, TypeError):
         return _set_filters_cookie_response("/admin/reservations", RESERVATIONS_FILTER_COOKIE, {})
-    return _reservations_redirect(date_iso)
+    updates = {"date": date_iso}
+    if view in RESERVATIONS_VIEWS:
+        updates["view"] = view
+    return _update_reservations_state(request, **updates)
+
+
+@admin_router.post("/admin/reservations/view")
+def admin_reservations_set_view(request: Request, view: str = Form(...)):
+    if view not in RESERVATIONS_VIEWS:
+        return RedirectResponse(url="/admin/reservations", status_code=303)
+    return _update_reservations_state(request, view=view)
+
+
+@admin_router.post("/admin/reservations/pool-filter")
+def admin_reservations_set_pool_filter(request: Request, pool_id: int = Form(...)):
+    return _update_reservations_state(request, pool_id=pool_id)
+
+
+@admin_router.post("/admin/reservations/sort")
+def admin_reservations_list_set_sort(sort_by: str = Form(...), sort_dir: str = Form(...)):
+    return _sort_redirect(
+        "/admin/reservations",
+        RESERVATIONS_LIST_SORT_COOKIE,
+        RESERVATIONS_LIST_SORTABLE,
+        sort_by,
+        sort_dir,
+        page_cookie=RESERVATIONS_LIST_PAGE_COOKIE,
+    )
+
+
+@admin_router.post("/admin/reservations/page-size")
+def admin_reservations_list_set_page_size(page_size: str = Form(...)):
+    return _page_size_redirect(
+        "/admin/reservations", RESERVATIONS_LIST_PAGE_SIZE_COOKIE, page_size, page_cookie=RESERVATIONS_LIST_PAGE_COOKIE
+    )
+
+
+@admin_router.post("/admin/reservations/page")
+def admin_reservations_list_set_page(page: str = Form(...)):
+    return _page_redirect("/admin/reservations", RESERVATIONS_LIST_PAGE_COOKIE, page)
+
+
+@admin_router.post("/admin/reservations/list-filters")
+def admin_reservations_list_set_filters(
+    date_from: str = Form(""),
+    date_to: str = Form(""),
+    pool_id: str = Form(""),
+    status: str = Form(""),
+):
+    filters = {}
+    try:
+        if date_from.strip():
+            date_cls.fromisoformat(date_from.strip())
+            filters["date_from"] = date_from.strip()
+    except ValueError:
+        pass
+    try:
+        if date_to.strip():
+            date_cls.fromisoformat(date_to.strip())
+            filters["date_to"] = date_to.strip()
+    except ValueError:
+        pass
+    if pool_id.strip():
+        try:
+            filters["pool_id"] = int(pool_id)
+        except ValueError:
+            pass
+    if status in RESERVATION_STATUS_CLASSES:
+        filters["status"] = status
+
+    return _set_filters_cookie_response(
+        "/admin/reservations", RESERVATIONS_LIST_FILTER_COOKIE, filters, also_delete=[RESERVATIONS_LIST_PAGE_COOKIE]
+    )
+
+
+@admin_router.post("/admin/reservations/list-filters/clear")
+def admin_reservations_list_clear_filters():
+    return _set_filters_cookie_response(
+        "/admin/reservations", RESERVATIONS_LIST_FILTER_COOKIE, {}, also_delete=[RESERVATIONS_LIST_PAGE_COOKIE]
+    )
 
 
 @admin_router.post("/admin/reservations")
 def admin_reservations_create(
+    request: Request,
     pool_id: int = Form(...),
     customer_name: str = Form(...),
     customer_phone: str = Form(...),
@@ -1958,11 +2282,12 @@ def admin_reservations_create(
     try:
         starts_at, ends_at = _parse_reservation_window(start_date, start_time, end_date, end_time)
     except ValueError as exc:
-        return _reservations_redirect(start_date.isoformat(), str(exc))
+        return _reservations_redirect(request, start_date.isoformat(), str(exc))
 
     conflicting_cycle = _find_conflicting_cycle(pool_id, starts_at, ends_at)
     if conflicting_cycle:
         return _reservations_redirect(
+            request,
             start_date.isoformat(),
             f"This pool is booked for the cycle \"{conflicting_cycle['name']}\" during that time. Pick a different time or pool.",
         )
@@ -1989,12 +2314,13 @@ def admin_reservations_create(
             error = "That pool is already booked during part of this time range. Pick a different time or pool."
         else:
             error = "Could not create reservation. Check the status value."
-        return _reservations_redirect(start_date.isoformat(), error)
-    return _reservations_redirect(start_date.isoformat())
+        return _reservations_redirect(request, start_date.isoformat(), error)
+    return _reservations_redirect(request, start_date.isoformat())
 
 
 @admin_router.post("/admin/reservations/{reservation_id}/edit")
 def admin_reservations_edit(
+    request: Request,
     reservation_id: int,
     pool_id: int = Form(...),
     customer_name: str = Form(...),
@@ -2010,11 +2336,12 @@ def admin_reservations_edit(
     try:
         starts_at, ends_at = _parse_reservation_window(start_date, start_time, end_date, end_time)
     except ValueError as exc:
-        return _reservations_redirect(start_date.isoformat(), str(exc))
+        return _reservations_redirect(request, start_date.isoformat(), str(exc))
 
     conflicting_cycle = _find_conflicting_cycle(pool_id, starts_at, ends_at)
     if conflicting_cycle:
         return _reservations_redirect(
+            request,
             start_date.isoformat(),
             f"This pool is booked for the cycle \"{conflicting_cycle['name']}\" during that time. Pick a different time or pool.",
         )
@@ -2041,12 +2368,13 @@ def admin_reservations_edit(
             error = "That pool is already booked during part of this time range. Pick a different time or pool."
         else:
             error = "Could not save changes. Check the status value."
-        return _reservations_redirect(start_date.isoformat(), error)
-    return _reservations_redirect(start_date.isoformat())
+        return _reservations_redirect(request, start_date.isoformat(), error)
+    return _reservations_redirect(request, start_date.isoformat())
 
 
 @admin_router.post("/admin/reservations/{reservation_id}/record-payment")
 def admin_reservations_record_payment(
+    request: Request,
     reservation_id: int,
     amount: float = Form(...),
     paid_at: date_cls = Form(...),
@@ -2075,6 +2403,7 @@ def admin_reservations_record_payment(
     remaining = reservation["price_snapshot"] - paid_so_far
     if amount > remaining:
         return _reservations_redirect(
+            request,
             reservation_date,
             f"Payment of ${amount:.2f} exceeds the remaining balance of ${remaining:.2f}.",
         )
@@ -2087,11 +2416,11 @@ def admin_reservations_record_payment(
         "paid_at": paid_at.isoformat(),
         "notes": notes or None,
     }).execute()
-    return _reservations_redirect(reservation_date)
+    return _reservations_redirect(request, reservation_date)
 
 
 @admin_router.post("/admin/reservations/{reservation_id}/cancel")
-def admin_reservations_cancel(reservation_id: int):
+def admin_reservations_cancel(request: Request, reservation_id: int):
     reservation = (
         supabase.table("reservations")
         .select("starts_at")
@@ -2102,7 +2431,7 @@ def admin_reservations_cancel(reservation_id: int):
     )
     reservation_date = datetime.fromisoformat(reservation["starts_at"]).date().isoformat()
     supabase.table("reservations").update({"status": "cancelled"}).eq("id", reservation_id).execute()
-    return _reservations_redirect(reservation_date)
+    return _reservations_redirect(request, reservation_date)
 
 
 PAYMENTS_SORTABLE = {

@@ -1,4 +1,5 @@
 {% extends "admin/base.html" %}
+{% import "admin/_macros.html" as m %}
 
 {% set active_nav = "reservations" %}
 {% block title %}Reservations — Sunset Swimming Pool Admin{% endblock %}
@@ -16,7 +17,52 @@
     <a class="inline-flex items-center gap-2 px-lg py-2.5 bg-primary-container text-white rounded-xl font-label-md text-label-md hover:opacity-90 transition-all" href="/admin/settings">Go to Settings</a>
 </div>
 {% else %}
-<div class="flex items-center justify-between mb-lg gap-4 flex-wrap">
+<div class="flex flex-col gap-4 mb-lg">
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+        <div class="flex items-center gap-3 flex-wrap">
+            <div class="flex items-center gap-1 bg-surface-container-low rounded-xl p-1 border border-outline-variant w-fit">
+                <form action="/admin/reservations/view" method="post">
+                    <input name="view" type="hidden" value="day">
+                    <button aria-label="Calendar view" class="flex items-center justify-center w-10 h-9 rounded-lg transition-colors {{ 'bg-primary-container text-white' if view in ['day', 'week', 'month'] else 'text-on-surface-variant hover:bg-surface-container-high' }}" title="Calendar" type="submit">
+                        <span class="material-symbols-outlined text-[20px]">calendar_month</span>
+                    </button>
+                </form>
+                <form action="/admin/reservations/view" method="post">
+                    <input name="view" type="hidden" value="list">
+                    <button aria-label="List view" class="flex items-center justify-center w-10 h-9 rounded-lg transition-colors {{ 'bg-primary-container text-white' if view == 'list' else 'text-on-surface-variant hover:bg-surface-container-high' }}" title="List" type="submit">
+                        <span class="material-symbols-outlined text-[20px]">format_list_bulleted</span>
+                    </button>
+                </form>
+            </div>
+            {% if view in ['day', 'week', 'month'] %}
+            <div class="flex items-center gap-1 bg-surface-container-low rounded-xl p-1 border border-outline-variant w-fit">
+                {% for mode, label in [('day', 'Day'), ('week', 'Week'), ('month', 'Month')] %}
+                <form action="/admin/reservations/view" method="post">
+                    <input name="view" type="hidden" value="{{ mode }}">
+                    <button class="px-4 py-1.5 rounded-lg font-label-md text-label-md transition-colors {{ 'bg-primary-container text-white' if view == mode else 'text-on-surface-variant hover:bg-surface-container-high' }}" type="submit">{{ label }}</button>
+                </form>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        <div class="flex items-center gap-3">
+            {% if view in ['week', 'month'] %}
+            <form action="/admin/reservations/pool-filter" method="post">
+                <select class="py-2 px-3 rounded-lg border border-outline-variant bg-white font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="pool_id" onchange="this.form.submit()">
+                    {% for pool in pools %}
+                    <option value="{{ pool.id }}" {{ 'selected' if pool.id == selected_pool_id }}>{{ pool.name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% endif %}
+            <button class="flex items-center justify-center gap-2 bg-primary-container text-on-primary px-lg py-2.5 rounded-xl font-label-md text-label-md shadow-lg hover:opacity-90 transition-all" onclick="document.getElementById('new-reservation-dialog').showModal()" type="button">
+                <span class="material-symbols-outlined">add</span>
+                New Booking
+            </button>
+        </div>
+    </div>
+
+    {% if view == 'day' %}
     <div class="flex items-center gap-md">
         <form action="/admin/reservations/filters" class="shrink-0" method="post">
             <input name="date" type="hidden" value="{{ prev_date }}">
@@ -43,12 +89,42 @@
             </button>
         </form>
     </div>
-    <button class="flex items-center justify-center gap-2 bg-primary-container text-on-primary px-lg py-2.5 rounded-xl font-label-md text-label-md shadow-lg hover:opacity-90 transition-all w-full sm:w-auto" onclick="document.getElementById('new-reservation-dialog').showModal()" type="button">
-        <span class="material-symbols-outlined">add</span>
-        New Booking
-    </button>
+    {% elif view == 'week' %}
+    <div class="flex items-center gap-md">
+        <form action="/admin/reservations/filters" class="shrink-0" method="post">
+            <input name="date" type="hidden" value="{{ prev_week_date }}">
+            <button aria-label="Previous week" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-all border border-outline-variant" type="submit">
+                <span class="material-symbols-outlined">chevron_left</span>
+            </button>
+        </form>
+        <h2 class="font-title-md text-title-md text-primary">{{ week_label }}</h2>
+        <form action="/admin/reservations/filters" class="shrink-0" method="post">
+            <input name="date" type="hidden" value="{{ next_week_date }}">
+            <button aria-label="Next week" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-all border border-outline-variant" type="submit">
+                <span class="material-symbols-outlined">chevron_right</span>
+            </button>
+        </form>
+    </div>
+    {% elif view == 'month' %}
+    <div class="flex items-center gap-md">
+        <form action="/admin/reservations/filters" class="shrink-0" method="post">
+            <input name="date" type="hidden" value="{{ prev_month_date }}">
+            <button aria-label="Previous month" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-all border border-outline-variant" type="submit">
+                <span class="material-symbols-outlined">chevron_left</span>
+            </button>
+        </form>
+        <h2 class="font-title-md text-title-md text-primary">{{ month_label }}</h2>
+        <form action="/admin/reservations/filters" class="shrink-0" method="post">
+            <input name="date" type="hidden" value="{{ next_month_date }}">
+            <button aria-label="Next month" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-all border border-outline-variant" type="submit">
+                <span class="material-symbols-outlined">chevron_right</span>
+            </button>
+        </form>
+    </div>
+    {% endif %}
 </div>
 
+{% if view == 'day' %}
 <div class="grid grid-cols-1 md:grid-cols-{{ pools|length if pools|length <= 3 else 3 }} gap-lg">
     {% for pool in pools %}
     <div class="bg-surface-container rounded-xl border border-outline-variant/30 overflow-hidden">
@@ -115,133 +191,8 @@
                 </div>
             </div>
 
-            <dialog id="edit-reservation-dialog-{{ reservation.id }}" class="rounded-2xl w-full max-w-md">
-                <div class="bg-surface-container-lowest w-full rounded-2xl shadow-[0px_4px_20px_rgba(11,37,69,0.08)] overflow-hidden flex flex-col">
-                    <div class="p-lg flex justify-between items-center border-b border-surface-variant">
-                        <h3 class="font-title-md text-title-md text-primary-container">Edit Reservation</h3>
-                        <button class="text-outline hover:text-primary transition-colors" onclick="document.getElementById('edit-reservation-dialog-{{ reservation.id }}').close()" type="button">
-                            <span class="material-symbols-outlined">close</span>
-                        </button>
-                    </div>
-                    <form id="edit-reservation-form-{{ reservation.id }}" method="post" action="/admin/reservations/{{ reservation.id }}/edit" class="p-lg space-y-md">
-                        <div class="space-y-xs">
-                            <label class="font-label-md text-on-surface-variant ml-1">Facility</label>
-                            <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="pool_id" required>
-                                {% for pool in pools %}
-                                <option value="{{ pool.id }}" {{ 'selected' if pool.id == reservation.pool_id }}>{{ pool.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="space-y-xs">
-                            <label class="font-label-md text-on-surface-variant ml-1">Customer Name</label>
-                            <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="customer_name" required type="text" value="{{ reservation.customer_name }}">
-                        </div>
-                        <div class="space-y-xs">
-                            <label class="font-label-md text-on-surface-variant ml-1">Phone Number</label>
-                            <div class="relative flex items-center">
-                                <span class="absolute left-lg font-body-md text-on-surface-variant border-r pr-2 border-outline-variant">+961</span>
-                                <input class="w-full min-h-[40px] pl-20 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="customer_phone" required type="tel" value="{{ reservation.phone_local }}">
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-md">
-                            <div class="space-y-xs">
-                                <label class="font-label-md text-on-surface-variant ml-1">Start Date</label>
-                                <input class="edit-start-date w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="start_date" required type="date" value="{{ reservation.start_date }}">
-                            </div>
-                            <div class="space-y-xs">
-                                <label class="font-label-md text-on-surface-variant ml-1">End Date</label>
-                                <input class="edit-end-date w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="{{ reservation.start_date }}" name="end_date" required type="date" value="{{ reservation.end_date }}">
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-md">
-                            <div class="space-y-xs">
-                                <label class="font-label-md text-on-surface-variant ml-1">Start Time</label>
-                                <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="start_time" required type="time" value="{{ reservation.start_time }}">
-                            </div>
-                            <div class="space-y-xs">
-                                <label class="font-label-md text-on-surface-variant ml-1">End Time</label>
-                                <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="end_time" required type="time" value="{{ reservation.end_time }}">
-                            </div>
-                        </div>
-                        <div class="space-y-xs">
-                            <label class="font-label-md text-on-surface-variant ml-1">Status</label>
-                            <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="status">
-                                <option value="pending" {{ 'selected' if reservation.status == 'pending' }}>Pending</option>
-                                <option value="confirmed" {{ 'selected' if reservation.status == 'confirmed' }}>Confirmed</option>
-                                <option value="cancelled" {{ 'selected' if reservation.status == 'cancelled' }}>Cancelled</option>
-                            </select>
-                        </div>
-                        <div class="space-y-xs">
-                            <label class="font-label-md text-on-surface-variant ml-1">Extra Charge</label>
-                            <div class="relative">
-                                <span class="absolute left-lg top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
-                                <input class="w-full min-h-[40px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="0" name="extra_charge_amount" step="0.01" type="number" value="{{ reservation.extra_charge_amount }}">
-                            </div>
-                        </div>
-                        <div class="space-y-1">
-                            <label class="flex items-center gap-2 font-body-md text-on-surface-variant">
-                                <input class="rounded border-outline-variant text-primary-container focus:ring-primary-container" name="is_evening_stay" type="checkbox" value="true" {{ 'checked' if reservation.is_evening_stay }}>
-                                Evening stay
-                            </label>
-                        </div>
-                        <p class="text-xs text-on-surface-variant ml-1">Price is recalculated automatically from the pool's weekday/weekend rate. If the end date differs from the start date, the night-stay rate is used instead. Check "Evening stay" to use the pool's evening rate regardless.</p>
-                        <div class="flex justify-end gap-3 pt-md">
-                            <button class="px-lg py-2 bg-transparent border border-secondary text-secondary font-semibold rounded-xl hover:bg-secondary-container transition-colors" onclick="document.getElementById('edit-reservation-dialog-{{ reservation.id }}').close()" type="button">
-                                Cancel
-                            </button>
-                            <button class="px-lg py-2 bg-primary-container text-white font-bold rounded-xl active:scale-95 transition-transform hover:opacity-90 flex items-center justify-center gap-2" type="submit">
-                                <span class="material-symbols-outlined text-[18px]">save</span>
-                                Save Changes
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </dialog>
-
-            <dialog id="payment-dialog-{{ reservation.id }}" class="rounded-2xl w-full max-w-md">
-                <div class="bg-surface-container-lowest w-full rounded-2xl shadow-[0px_4px_20px_rgba(11,37,69,0.08)] overflow-hidden flex flex-col">
-                    <div class="p-lg flex justify-between items-center border-b border-surface-variant">
-                        <h3 class="font-title-md text-title-md text-primary-container">Record Payment</h3>
-                        <button class="text-outline hover:text-primary transition-colors" onclick="document.getElementById('payment-dialog-{{ reservation.id }}').close()" type="button">
-                            <span class="material-symbols-outlined">close</span>
-                        </button>
-                    </div>
-                    <form method="post" action="/admin/reservations/{{ reservation.id }}/record-payment" class="p-lg space-y-lg">
-                        <div class="space-y-xs">
-                            <label class="font-label-md text-on-surface-variant ml-1">Payment Amount</label>
-                            <div class="relative">
-                                <span class="absolute left-lg top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
-                                <input class="w-full min-h-[40px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" max="{{ reservation.remaining }}" min="0.01" name="amount" placeholder="0.00" required step="0.01" type="number">
-                            </div>
-                            <p class="text-xs text-on-surface-variant ml-1">Remaining balance: ${{ "%.2f"|format(reservation.remaining) }}</p>
-                        </div>
-                        <div class="space-y-xs">
-                            <label class="font-label-md text-on-surface-variant ml-1">Payment Date</label>
-                            <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="paid_at" required type="date" value="{{ today_iso }}">
-                        </div>
-                        <div class="space-y-xs">
-                            <label class="font-label-md text-on-surface-variant ml-1">Method</label>
-                            <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="method">
-                                <option value="cash">Cash</option>
-                                <option value="whish">Whish</option>
-                            </select>
-                        </div>
-                        <div class="space-y-xs">
-                            <label class="font-label-md text-on-surface-variant ml-1">Note</label>
-                            <textarea class="w-full px-lg py-2 rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface min-h-[100px]" name="notes" placeholder="Add additional details..."></textarea>
-                        </div>
-                        <div class="flex justify-end gap-3 pt-md">
-                            <button class="px-lg py-2 bg-transparent border border-secondary text-secondary font-semibold rounded-xl hover:bg-secondary-container transition-colors" onclick="document.getElementById('payment-dialog-{{ reservation.id }}').close()" type="button">
-                                Cancel
-                            </button>
-                            <button class="px-lg py-2 bg-primary-container text-white font-bold rounded-xl active:scale-95 transition-transform hover:opacity-90 flex items-center justify-center gap-2" type="submit">
-                                <span class="material-symbols-outlined text-[18px]">save</span>
-                                Save Payment
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </dialog>
+            {{ m.reservation_edit_dialog(reservation, pools) }}
+            {{ m.reservation_payment_dialog(reservation, today_iso) }}
             {% endif %}
             {% else %}
             <p class="font-body-md text-on-surface-variant text-center py-lg">No bookings.</p>
@@ -250,6 +201,218 @@
     </div>
     {% endfor %}
 </div>
+
+{% elif view == 'week' %}
+<div class="grid grid-cols-7 gap-2">
+    {% for day in week_days %}
+    <div class="bg-surface-container rounded-xl border border-outline-variant/30 overflow-hidden flex flex-col {{ 'ring-2 ring-primary-container' if day.is_today else '' }}">
+        <form action="/admin/reservations/filters" method="post">
+            <input name="date" type="hidden" value="{{ day.date }}">
+            <input name="view" type="hidden" value="day">
+            <button class="w-full text-center py-2 bg-surface-container-low border-b border-outline-variant/30 hover:bg-surface-container-high transition-colors" type="submit">
+                <p class="font-caption text-caption text-outline uppercase tracking-wider">{{ day.label }}</p>
+                <p class="font-title-md text-title-md {{ 'text-primary-container font-bold' if day.is_today else 'text-primary' }}">{{ day.day_number }}</p>
+            </button>
+        </form>
+        <div class="p-2 space-y-1.5 flex-1 min-h-[220px]">
+            {% for entry in day.entries %}
+            {% if entry.is_cycle %}
+            <div class="rounded-lg border-l-4 border-dashed border-tertiary-fixed-dim bg-tertiary-fixed/10 px-2 py-1.5">
+                <p class="font-caption text-[11px] font-bold text-on-tertiary-fixed-variant truncate" title="{{ entry.cycle_name }}">{{ entry.cycle_name }}</p>
+                <p class="font-caption text-[10px] text-outline">{{ entry.time_range }}</p>
+            </div>
+            {% else %}
+            <button class="w-full text-left rounded-lg border-l-4 shadow-sm px-2 py-1.5 bg-white hover:shadow-md transition-shadow {{ 'border-secondary' if entry.status == 'confirmed' else ('border-error' if entry.status == 'cancelled' else 'border-tertiary-fixed-dim') }}" onclick="document.getElementById('edit-reservation-dialog-{{ entry.id }}').showModal()" type="button">
+                <p class="font-caption text-[11px] font-bold text-primary truncate" title="{{ entry.customer_name }}">{{ entry.customer_name }}</p>
+                <p class="font-caption text-[10px] text-outline">{{ entry.time_range }}</p>
+            </button>
+            {{ m.reservation_edit_dialog(entry, pools) }}
+            {{ m.reservation_payment_dialog(entry, today_iso) }}
+            {% endif %}
+            {% else %}
+            <p class="font-caption text-[11px] text-on-surface-variant text-center py-4">—</p>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% elif view == 'month' %}
+<div class="grid grid-cols-7 gap-1 text-center mb-1">
+    {% for label in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
+    <p class="font-caption text-caption text-outline uppercase tracking-wider py-1">{{ label }}</p>
+    {% endfor %}
+</div>
+<div class="grid grid-cols-7 gap-1">
+    {% for week in month_weeks %}
+    {% for day in week %}
+    <div class="bg-surface-container rounded-lg border border-outline-variant/30 min-h-[110px] flex flex-col {{ '' if day.in_month else 'opacity-40' }} {{ 'ring-2 ring-primary-container' if day.is_today else '' }}">
+        <form action="/admin/reservations/filters" method="post">
+            <input name="date" type="hidden" value="{{ day.date }}">
+            <input name="view" type="hidden" value="day">
+            <button class="w-full text-right px-2 pt-1.5 pb-1 font-caption text-caption hover:text-primary transition-colors {{ 'text-primary-container font-bold' if day.is_today else 'text-on-surface-variant' }}" type="submit">{{ day.day_number }}</button>
+        </form>
+        <div class="px-1.5 pb-1.5 space-y-1 flex-1">
+            {% for entry in day.entries[:2] %}
+            {% if entry.is_cycle %}
+            <div class="rounded border-l-2 border-dashed border-tertiary-fixed-dim bg-tertiary-fixed/10 px-1.5 py-0.5 truncate" title="{{ entry.cycle_name }}">
+                <p class="font-caption text-[10px] font-bold text-on-tertiary-fixed-variant truncate">{{ entry.cycle_name }}</p>
+            </div>
+            {% else %}
+            <button class="w-full text-left rounded border-l-2 px-1.5 py-0.5 bg-white truncate hover:shadow-sm transition-shadow {{ 'border-secondary' if entry.status == 'confirmed' else ('border-error' if entry.status == 'cancelled' else 'border-tertiary-fixed-dim') }}" onclick="document.getElementById('edit-reservation-dialog-{{ entry.id }}').showModal()" title="{{ entry.customer_name }} — {{ entry.time_range }}" type="button">
+                <p class="font-caption text-[10px] font-bold text-primary truncate">{{ entry.customer_name }}</p>
+            </button>
+            {{ m.reservation_edit_dialog(entry, pools) }}
+            {{ m.reservation_payment_dialog(entry, today_iso) }}
+            {% endif %}
+            {% endfor %}
+            {% if day.entries|length > 2 %}
+            <form action="/admin/reservations/filters" method="post">
+                <input name="date" type="hidden" value="{{ day.date }}">
+                <input name="view" type="hidden" value="day">
+                <button class="font-caption text-[10px] text-secondary hover:underline" type="submit">+{{ day.entries|length - 2 }} more</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% endfor %}
+</div>
+
+{% elif view == 'list' %}
+<div class="bg-white rounded-xl border border-outline-variant shadow-[0px_4px_20px_rgba(11,37,69,0.08)] p-lg mb-lg">
+    <form action="/admin/reservations/list-filters" class="flex flex-wrap items-end gap-4" method="post">
+        <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Date From</label>
+            <input class="block w-40 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="date_from" type="date" value="{{ list_date_from }}">
+        </div>
+        <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Date To</label>
+            <input class="block w-40 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="date_to" type="date" value="{{ list_date_to }}">
+        </div>
+        <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Pool</label>
+            <select class="block w-40 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="pool_id">
+                <option value="">All Pools</option>
+                {% for pool in pools %}
+                <option value="{{ pool.id }}" {{ 'selected' if list_pool_id == pool.id }}>{{ pool.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Status</label>
+            <select class="block w-40 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="status">
+                <option value="">All Statuses</option>
+                <option value="pending" {{ 'selected' if list_status == 'pending' }}>Pending</option>
+                <option value="confirmed" {{ 'selected' if list_status == 'confirmed' }}>Confirmed</option>
+                <option value="cancelled" {{ 'selected' if list_status == 'cancelled' }}>Cancelled</option>
+            </select>
+        </div>
+        <div class="flex items-center gap-2">
+            <button class="px-lg py-2 bg-primary-container text-white rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity" type="submit">Apply Filters</button>
+            {% if list_date_from or list_date_to or list_pool_id or list_status %}
+            <button class="px-lg py-2 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low transition-colors border border-outline-variant" formaction="/admin/reservations/list-filters/clear" type="submit">Clear</button>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<div class="bg-white rounded-xl overflow-hidden border border-outline-variant shadow-[0px_4px_20px_rgba(11,37,69,0.08)]">
+    {% include "admin/_page_size_bar.html" %}
+    <div class="hidden md:block overflow-x-auto">
+        <table class="w-full text-left border-collapse table-fixed">
+            <thead>
+                <tr class="bg-surface-container-low border-b border-outline-variant">
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[20%]">{{ m.sort_header('Customer', 'customer_name', sort_by, sort_dir, '/admin/reservations/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[14%]">Pool</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[20%]">{{ m.sort_header('Date & Time', 'starts_at', sort_by, sort_dir, '/admin/reservations/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[13%]">{{ m.sort_header('Price', 'price_snapshot', sort_by, sort_dir, '/admin/reservations/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[15%]">Paid</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[10%]">{{ m.sort_header('Status', 'status', sort_by, sort_dir, '/admin/reservations/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[8%]">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-surface-container-low">
+                {% for reservation in list_reservations %}
+                <tr class="hover:bg-surface-container-lowest transition-colors {{ 'bg-surface-container-lowest/60' if loop.index0 % 2 == 1 else '' }}">
+                    <td class="px-6 py-2 font-label-md text-label-md text-primary truncate text-start" title="{{ reservation.customer_name }}">{{ reservation.customer_name }}</td>
+                    <td class="px-6 py-2 font-body-md text-body-md text-on-surface-variant truncate text-start">{{ reservation.pool_name }}</td>
+                    <td class="px-6 py-2 font-body-md text-body-md text-on-surface-variant text-start">
+                        {{ reservation.start_date | short_date }}
+                        <span class="text-outline">{{ reservation.time_range }}</span>
+                    </td>
+                    <td class="px-6 py-2 font-label-md text-label-md text-primary text-right">${{ "%.2f"|format(reservation.price_snapshot) }}</td>
+                    <td class="px-6 py-2 font-body-md text-body-md text-start {{ 'text-secondary' if reservation.paid > 0 else 'text-error' }}">
+                        ${{ "%.2f"|format(reservation.paid) }}{{ " · $%.2f left"|format(reservation.remaining) if reservation.remaining > 0 else "" }}
+                    </td>
+                    <td class="px-6 py-2">
+                        <span class="px-sm rounded-full font-caption text-[10px] uppercase {{ status_classes.get(reservation.status, 'bg-surface-container text-on-surface-variant') }}">{{ reservation.status }}</span>
+                    </td>
+                    <td class="px-6 py-2 text-right whitespace-nowrap">
+                        <button class="p-1.5 text-on-surface-variant hover:text-primary transition-colors" onclick="document.getElementById('edit-reservation-dialog-{{ reservation.id }}').showModal()" title="Edit reservation" type="button">
+                            <span class="material-symbols-outlined text-[20px]">edit</span>
+                        </button>
+                        <button class="p-1.5 text-on-surface-variant hover:text-secondary transition-colors" onclick="document.getElementById('payment-dialog-{{ reservation.id }}').showModal()" title="Record payment" type="button">
+                            <span class="material-symbols-outlined text-[20px]">payments</span>
+                        </button>
+                        {% if reservation.status != 'cancelled' %}
+                        <form action="/admin/reservations/{{ reservation.id }}/cancel" class="inline" method="post" onsubmit="return confirm('Cancel this reservation for {{ reservation.customer_name }}?');">
+                            <button class="p-1.5 text-on-surface-variant hover:text-error transition-colors" title="Cancel reservation" type="submit">
+                                <span class="material-symbols-outlined text-[20px]">event_busy</span>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {{ m.reservation_edit_dialog(reservation, pools) }}
+                {{ m.reservation_payment_dialog(reservation, today_iso) }}
+                {% else %}
+                <tr>
+                    <td class="px-6 py-8 text-center font-body-md text-on-surface-variant" colspan="7">No reservations found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Mobile cards -->
+    <div class="md:hidden divide-y divide-surface-container-low">
+        {% for reservation in list_reservations %}
+        <div class="p-lg space-y-2 {{ 'bg-surface-container-lowest/60' if loop.index0 % 2 == 1 else '' }}">
+            <div class="flex items-start justify-between gap-2">
+                <p class="font-label-md text-label-md text-primary truncate" title="{{ reservation.customer_name }}">{{ reservation.customer_name }}</p>
+                <span class="px-sm rounded-full font-caption text-[10px] uppercase shrink-0 {{ status_classes.get(reservation.status, 'bg-surface-container text-on-surface-variant') }}">{{ reservation.status }}</span>
+            </div>
+            <div class="grid grid-cols-2 gap-x-3 gap-y-1 font-body-md text-sm text-on-surface-variant">
+                <div><span class="text-on-surface-variant/70">Pool:</span> {{ reservation.pool_name }}</div>
+                <div><span class="text-on-surface-variant/70">Price:</span> ${{ "%.2f"|format(reservation.price_snapshot) }}</div>
+                <div class="col-span-2"><span class="text-on-surface-variant/70">When:</span> {{ reservation.start_date | short_date }} {{ reservation.time_range }}</div>
+                <div class="col-span-2"><span class="text-on-surface-variant/70">Paid:</span> ${{ "%.2f"|format(reservation.paid) }}{{ " · $%.2f left"|format(reservation.remaining) if reservation.remaining > 0 else "" }}</div>
+            </div>
+            <div class="flex items-center gap-1 pt-1">
+                <button class="p-1.5 text-on-surface-variant hover:text-primary transition-colors" onclick="document.getElementById('edit-reservation-dialog-{{ reservation.id }}').showModal()" title="Edit reservation" type="button">
+                    <span class="material-symbols-outlined text-[20px]">edit</span>
+                </button>
+                <button class="p-1.5 text-on-surface-variant hover:text-secondary transition-colors" onclick="document.getElementById('payment-dialog-{{ reservation.id }}').showModal()" title="Record payment" type="button">
+                    <span class="material-symbols-outlined text-[20px]">payments</span>
+                </button>
+                {% if reservation.status != 'cancelled' %}
+                <form action="/admin/reservations/{{ reservation.id }}/cancel" method="post" onsubmit="return confirm('Cancel this reservation for {{ reservation.customer_name }}?');">
+                    <button class="p-1.5 text-on-surface-variant hover:text-error transition-colors" title="Cancel reservation" type="submit">
+                        <span class="material-symbols-outlined text-[20px]">event_busy</span>
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        <div class="px-lg py-8 text-center font-body-md text-on-surface-variant">No reservations found.</div>
+        {% endfor %}
+    </div>
+
+    {% include "admin/_pager.html" %}
+</div>
+{% endif %}
 
 <dialog id="new-reservation-dialog" class="rounded-2xl w-full max-w-md">
     <div class="bg-surface-container-lowest w-full rounded-2xl shadow-[0px_4px_20px_rgba(11,37,69,0.08)] overflow-hidden flex flex-col">
@@ -264,7 +427,7 @@
                 <label class="font-label-md text-on-surface-variant ml-1">Facility</label>
                 <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="pool_id" required>
                     {% for pool in pools %}
-                    <option value="{{ pool.id }}">{{ pool.name }}</option>
+                    <option value="{{ pool.id }}" {{ 'selected' if pool.id == selected_pool_id }}>{{ pool.name }}</option>
                     {% endfor %}
                 </select>
             </div>

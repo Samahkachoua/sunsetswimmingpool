@@ -12,6 +12,138 @@
 </form>
 {%- endmacro %}
 
+{% macro reservation_edit_dialog(reservation, pools) -%}
+<dialog id="edit-reservation-dialog-{{ reservation.id }}" class="rounded-2xl w-full max-w-md">
+    <div class="bg-surface-container-lowest w-full rounded-2xl shadow-[0px_4px_20px_rgba(11,37,69,0.08)] overflow-hidden flex flex-col">
+        <div class="p-lg flex justify-between items-center border-b border-surface-variant">
+            <h3 class="font-title-md text-title-md text-primary-container">Edit Reservation</h3>
+            <button class="text-outline hover:text-primary transition-colors" onclick="document.getElementById('edit-reservation-dialog-{{ reservation.id }}').close()" type="button">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <form id="edit-reservation-form-{{ reservation.id }}" method="post" action="/admin/reservations/{{ reservation.id }}/edit" class="p-lg space-y-md">
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Facility</label>
+                <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="pool_id" required>
+                    {% for pool in pools %}
+                    <option value="{{ pool.id }}" {{ 'selected' if pool.id == reservation.pool_id }}>{{ pool.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Customer Name</label>
+                <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="customer_name" required type="text" value="{{ reservation.customer_name }}">
+            </div>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Phone Number</label>
+                <div class="relative flex items-center">
+                    <span class="absolute left-lg font-body-md text-on-surface-variant border-r pr-2 border-outline-variant">+961</span>
+                    <input class="w-full min-h-[40px] pl-20 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="customer_phone" required type="tel" value="{{ reservation.phone_local }}">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-md">
+                <div class="space-y-xs">
+                    <label class="font-label-md text-on-surface-variant ml-1">Start Date</label>
+                    <input class="edit-start-date w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="start_date" required type="date" value="{{ reservation.start_date }}">
+                </div>
+                <div class="space-y-xs">
+                    <label class="font-label-md text-on-surface-variant ml-1">End Date</label>
+                    <input class="edit-end-date w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="{{ reservation.start_date }}" name="end_date" required type="date" value="{{ reservation.end_date }}">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-md">
+                <div class="space-y-xs">
+                    <label class="font-label-md text-on-surface-variant ml-1">Start Time</label>
+                    <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="start_time" required type="time" value="{{ reservation.start_time }}">
+                </div>
+                <div class="space-y-xs">
+                    <label class="font-label-md text-on-surface-variant ml-1">End Time</label>
+                    <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="end_time" required type="time" value="{{ reservation.end_time }}">
+                </div>
+            </div>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Status</label>
+                <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="status">
+                    <option value="pending" {{ 'selected' if reservation.status == 'pending' }}>Pending</option>
+                    <option value="confirmed" {{ 'selected' if reservation.status == 'confirmed' }}>Confirmed</option>
+                    <option value="cancelled" {{ 'selected' if reservation.status == 'cancelled' }}>Cancelled</option>
+                </select>
+            </div>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Extra Charge</label>
+                <div class="relative">
+                    <span class="absolute left-lg top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
+                    <input class="w-full min-h-[40px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" min="0" name="extra_charge_amount" step="0.01" type="number" value="{{ reservation.extra_charge_amount }}">
+                </div>
+            </div>
+            <div class="space-y-1">
+                <label class="flex items-center gap-2 font-body-md text-on-surface-variant">
+                    <input class="rounded border-outline-variant text-primary-container focus:ring-primary-container" name="is_evening_stay" type="checkbox" value="true" {{ 'checked' if reservation.is_evening_stay }}>
+                    Evening stay
+                </label>
+            </div>
+            <p class="text-xs text-on-surface-variant ml-1">Price is recalculated automatically from the pool's weekday/weekend rate. If the end date differs from the start date, the night-stay rate is used instead. Check "Evening stay" to use the pool's evening rate regardless.</p>
+            <div class="flex justify-end gap-3 pt-md">
+                <button class="px-lg py-2 bg-transparent border border-secondary text-secondary font-semibold rounded-xl hover:bg-secondary-container transition-colors" onclick="document.getElementById('edit-reservation-dialog-{{ reservation.id }}').close()" type="button">
+                    Cancel
+                </button>
+                <button class="px-lg py-2 bg-primary-container text-white font-bold rounded-xl active:scale-95 transition-transform hover:opacity-90 flex items-center justify-center gap-2" type="submit">
+                    <span class="material-symbols-outlined text-[18px]">save</span>
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</dialog>
+{%- endmacro %}
+
+{% macro reservation_payment_dialog(reservation, today_iso) -%}
+<dialog id="payment-dialog-{{ reservation.id }}" class="rounded-2xl w-full max-w-md">
+    <div class="bg-surface-container-lowest w-full rounded-2xl shadow-[0px_4px_20px_rgba(11,37,69,0.08)] overflow-hidden flex flex-col">
+        <div class="p-lg flex justify-between items-center border-b border-surface-variant">
+            <h3 class="font-title-md text-title-md text-primary-container">Record Payment</h3>
+            <button class="text-outline hover:text-primary transition-colors" onclick="document.getElementById('payment-dialog-{{ reservation.id }}').close()" type="button">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <form method="post" action="/admin/reservations/{{ reservation.id }}/record-payment" class="p-lg space-y-lg">
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Payment Amount</label>
+                <div class="relative">
+                    <span class="absolute left-lg top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
+                    <input class="w-full min-h-[40px] pl-8 pr-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" max="{{ reservation.remaining }}" min="0.01" name="amount" placeholder="0.00" required step="0.01" type="number">
+                </div>
+                <p class="text-xs text-on-surface-variant ml-1">Remaining balance: ${{ "%.2f"|format(reservation.remaining) }}</p>
+            </div>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Payment Date</label>
+                <input class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="paid_at" required type="date" value="{{ today_iso }}">
+            </div>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Method</label>
+                <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="method">
+                    <option value="cash">Cash</option>
+                    <option value="whish">Whish</option>
+                </select>
+            </div>
+            <div class="space-y-xs">
+                <label class="font-label-md text-on-surface-variant ml-1">Note</label>
+                <textarea class="w-full px-lg py-2 rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface min-h-[100px]" name="notes" placeholder="Add additional details..."></textarea>
+            </div>
+            <div class="flex justify-end gap-3 pt-md">
+                <button class="px-lg py-2 bg-transparent border border-secondary text-secondary font-semibold rounded-xl hover:bg-secondary-container transition-colors" onclick="document.getElementById('payment-dialog-{{ reservation.id }}').close()" type="button">
+                    Cancel
+                </button>
+                <button class="px-lg py-2 bg-primary-container text-white font-bold rounded-xl active:scale-95 transition-transform hover:opacity-90 flex items-center justify-center gap-2" type="submit">
+                    <span class="material-symbols-outlined text-[18px]">save</span>
+                    Save Payment
+                </button>
+            </div>
+        </form>
+    </div>
+</dialog>
+{%- endmacro %}
+
 {% macro export_links(base_path) -%}
 <div class="flex items-center gap-2">
     <a class="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-xl font-label-md text-label-md hover:opacity-90 transition-all" href="{{ base_path }}/export?format=xlsx">
