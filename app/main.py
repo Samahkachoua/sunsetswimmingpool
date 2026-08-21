@@ -1844,6 +1844,35 @@ def _enrich_reservation(reservation: dict, paid_by_reservation: dict) -> None:
     reservation["phone_local"] = reservation["customer_phone"].removeprefix("+961").lstrip()
 
 
+def _attach_payments(reservations: list[dict]) -> None:
+    """Enrich reservations in place with paid/remaining, looked up from the payments table."""
+    reservation_ids = [reservation["id"] for reservation in reservations]
+    paid_by_reservation = {}
+    if reservation_ids:
+        payments = (
+            supabase.table("payments")
+            .select("payable_id, amount")
+            .eq("payable_type", "reservation")
+            .in_("payable_id", reservation_ids)
+            .execute()
+            .data
+        )
+        for payment in payments:
+            paid_by_reservation[payment["payable_id"]] = (
+                paid_by_reservation.get(payment["payable_id"], 0) + payment["amount"]
+            )
+    for reservation in reservations:
+        _enrich_reservation(reservation, paid_by_reservation)
+
+
+def _reservation_paid_status(reservation: dict) -> str:
+    if reservation["paid"] <= 0:
+        return "unpaid"
+    if reservation["paid"] < reservation["price_snapshot"]:
+        return "partial"
+    return "paid"
+
+
 def _fetch_reservations_in_range(range_start: datetime, range_end: datetime, pool_id: int | None = None) -> list[dict]:
     """Reservations whose window overlaps [range_start, range_end), enriched for display."""
     query = (
@@ -1860,25 +1889,7 @@ def _fetch_reservations_in_range(range_start: datetime, range_end: datetime, poo
     if pool_id is not None:
         query = query.eq("pool_id", pool_id)
     reservations = query.execute().data
-
-    reservation_ids = [reservation["id"] for reservation in reservations]
-    paid_by_reservation = {}
-    if reservation_ids:
-        payments = (
-            supabase.table("payments")
-            .select("payable_id, amount")
-            .eq("payable_type", "reservation")
-            .in_("payable_id", reservation_ids)
-            .execute()
-            .data
-        )
-        for payment in payments:
-            paid_by_reservation[payment["payable_id"]] = (
-                paid_by_reservation.get(payment["payable_id"], 0) + payment["amount"]
-            )
-
-    for reservation in reservations:
-        _enrich_reservation(reservation, paid_by_reservation)
+    _attach_payments(reservations)
     return reservations
 
 
@@ -2079,39 +2090,43 @@ def _build_reservations_list_view(request: Request) -> dict:
     column = RESERVATIONS_LIST_SORTABLE[sort_by]
 
     filters = _get_filters_cookie(request, RESERVATIONS_LIST_FILTER_COOKIE)
+    paid_status_filter = filters.get("paid_status")
 
-    def build_query(start, end):
-        query = _reservations_list_apply_filters(
-            supabase.table("reservations").select(
-                "id, pool_id, customer_name, customer_phone, starts_at, ends_at, "
-                "price_snapshot, base_price, extra_charge_applied, extra_charge_amount, "
-                "is_evening_stay, status, pools(name)",
-                count="exact",
-            ),
-            filters,
-        )
-        return query.order(column, desc=(sort_dir == "desc")).range(start, end).execute()
+    select_cols = (
+        "id, pool_id, customer_name, customer_phone, starts_at, ends_at, "
+        "price_snapshot, base_price, extra_charge_applied, extra_charge_amount, "
+        "is_evening_stay, status, pools(name)"
+    )
 
-    reservations, total, page, total_pages = _fetch_page(build_query, page, page_size)
+    if not paid_status_filter:
+        def build_query(start, end):
+            query = _reservations_list_apply_filters(
+                supabase.table("reservations").select(select_cols, count="exact"), filters
+            )
+            return query.order(column, desc=(sort_dir == "desc")).range(start, end).execute()
 
-    reservation_ids = [reservation["id"] for reservation in reservations]
-    paid_by_reservation = {}
-    if reservation_ids:
-        payments = (
-            supabase.table("payments")
-            .select("payable_id, amount")
-            .eq("payable_type", "reservation")
-            .in_("payable_id", reservation_ids)
+        reservations, total, page, total_pages = _fetch_page(build_query, page, page_size)
+        _attach_payments(reservations)
+    else:
+        # Paid status isn't a real column (it's derived from the payments table), so it
+        # can't be pushed into the query — fetch everything matching the other filters,
+        # then filter/sort/paginate in Python.
+        all_matching = (
+            _reservations_list_apply_filters(supabase.table("reservations").select(select_cols), filters)
             .execute()
             .data
         )
-        for payment in payments:
-            paid_by_reservation[payment["payable_id"]] = (
-                paid_by_reservation.get(payment["payable_id"], 0) + payment["amount"]
-            )
+        _attach_payments(all_matching)
+        filtered = [row for row in all_matching if _reservation_paid_status(row) == paid_status_filter]
+        filtered.sort(key=lambda row: row[column], reverse=(sort_dir == "desc"))
+
+        total = len(filtered)
+        total_pages = max(1, math.ceil(total / page_size)) if total else 1
+        page = min(page, total_pages)
+        start = (page - 1) * page_size
+        reservations = filtered[start : start + page_size]
 
     for reservation in reservations:
-        _enrich_reservation(reservation, paid_by_reservation)
         reservation["pool_name"] = reservation["pools"]["name"] if reservation.get("pools") else "—"
 
     return {
@@ -2126,6 +2141,7 @@ def _build_reservations_list_view(request: Request) -> dict:
         "list_date_to": filters.get("date_to", ""),
         "list_pool_id": filters.get("pool_id", ""),
         "list_status": filters.get("status", ""),
+        "list_paid_status": filters.get("paid_status", ""),
     }
 
 
@@ -2225,12 +2241,16 @@ def admin_reservations_list_set_page(page: str = Form(...)):
     return _page_redirect("/admin/reservations", RESERVATIONS_LIST_PAGE_COOKIE, page)
 
 
+RESERVATION_PAID_STATUSES = ("paid", "partial", "unpaid")
+
+
 @admin_router.post("/admin/reservations/list-filters")
 def admin_reservations_list_set_filters(
     date_from: str = Form(""),
     date_to: str = Form(""),
     pool_id: str = Form(""),
     status: str = Form(""),
+    paid_status: str = Form(""),
 ):
     filters = {}
     try:
@@ -2252,6 +2272,8 @@ def admin_reservations_list_set_filters(
             pass
     if status in RESERVATION_STATUS_CLASSES:
         filters["status"] = status
+    if paid_status in RESERVATION_PAID_STATUSES:
+        filters["paid_status"] = paid_status
 
     return _set_filters_cookie_response(
         "/admin/reservations", RESERVATIONS_LIST_FILTER_COOKIE, filters, also_delete=[RESERVATIONS_LIST_PAGE_COOKIE]

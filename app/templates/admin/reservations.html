@@ -48,7 +48,7 @@
         <div class="flex items-center gap-3">
             {% if view in ['week', 'month'] %}
             <form action="/admin/reservations/pool-filter" method="post">
-                <select class="py-2 px-3 rounded-lg border border-outline-variant bg-white font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="pool_id" onchange="this.form.submit()">
+                <select class="py-2 pl-3 pr-10 rounded-lg border border-outline-variant bg-white font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="pool_id" onchange="this.form.submit()">
                     {% for pool in pools %}
                     <option value="{{ pool.id }}" {{ 'selected' if pool.id == selected_pool_id }}>{{ pool.name }}</option>
                     {% endfor %}
@@ -284,15 +284,15 @@
     <form action="/admin/reservations/list-filters" class="flex flex-wrap items-end gap-4" method="post">
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Date From</label>
-            <input class="block w-40 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="date_from" type="date" value="{{ list_date_from }}">
+            <input class="block w-40 pl-3 pr-10 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="date_from" type="date" value="{{ list_date_from }}">
         </div>
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Date To</label>
-            <input class="block w-40 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="date_to" type="date" value="{{ list_date_to }}">
+            <input class="block w-40 pl-3 pr-10 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="date_to" type="date" value="{{ list_date_to }}">
         </div>
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Pool</label>
-            <select class="block w-40 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="pool_id">
+            <select class="block w-40 pl-3 pr-10 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="pool_id">
                 <option value="">All Pools</option>
                 {% for pool in pools %}
                 <option value="{{ pool.id }}" {{ 'selected' if list_pool_id == pool.id }}>{{ pool.name }}</option>
@@ -301,16 +301,25 @@
         </div>
         <div class="space-y-1">
             <label class="block font-label-md text-label-md text-on-surface-variant">Status</label>
-            <select class="block w-40 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="status">
+            <select class="block w-40 pl-3 pr-10 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="status">
                 <option value="">All Statuses</option>
                 <option value="pending" {{ 'selected' if list_status == 'pending' }}>Pending</option>
                 <option value="confirmed" {{ 'selected' if list_status == 'confirmed' }}>Confirmed</option>
                 <option value="cancelled" {{ 'selected' if list_status == 'cancelled' }}>Cancelled</option>
             </select>
         </div>
+        <div class="space-y-1">
+            <label class="block font-label-md text-label-md text-on-surface-variant">Paid Status</label>
+            <select class="block w-40 pl-3 pr-10 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md outline-none focus:ring-2 focus:ring-secondary" name="paid_status">
+                <option value="">All</option>
+                <option value="paid" {{ 'selected' if list_paid_status == 'paid' }}>Paid</option>
+                <option value="partial" {{ 'selected' if list_paid_status == 'partial' }}>Partial</option>
+                <option value="unpaid" {{ 'selected' if list_paid_status == 'unpaid' }}>Unpaid</option>
+            </select>
+        </div>
         <div class="flex items-center gap-2">
             <button class="px-lg py-2 bg-primary-container text-white rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity" type="submit">Apply Filters</button>
-            {% if list_date_from or list_date_to or list_pool_id or list_status %}
+            {% if list_date_from or list_date_to or list_pool_id or list_status or list_paid_status %}
             <button class="px-lg py-2 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low transition-colors border border-outline-variant" formaction="/admin/reservations/list-filters/clear" type="submit">Clear</button>
             {% endif %}
         </div>
@@ -325,10 +334,9 @@
                 <tr class="bg-surface-container-low border-b border-outline-variant">
                     <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[20%]">{{ m.sort_header('Customer', 'customer_name', sort_by, sort_dir, '/admin/reservations/sort') }}</th>
                     <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[14%]">Pool</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[20%]">{{ m.sort_header('Date & Time', 'starts_at', sort_by, sort_dir, '/admin/reservations/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[25%]">{{ m.sort_header('Date & Time', 'starts_at', sort_by, sort_dir, '/admin/reservations/sort') }}</th>
                     <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[13%]">{{ m.sort_header('Price', 'price_snapshot', sort_by, sort_dir, '/admin/reservations/sort') }}</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[15%]">Paid</th>
-                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[10%]">{{ m.sort_header('Status', 'status', sort_by, sort_dir, '/admin/reservations/sort') }}</th>
+                    <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider w-[20%]">Paid</th>
                     <th class="px-6 py-2.5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right w-[8%]">Actions</th>
                 </tr>
             </thead>
@@ -344,9 +352,6 @@
                     <td class="px-6 py-2 font-label-md text-label-md text-primary text-right">${{ "%.2f"|format(reservation.price_snapshot) }}</td>
                     <td class="px-6 py-2 font-body-md text-body-md text-start {{ 'text-secondary' if reservation.paid > 0 else 'text-error' }}">
                         ${{ "%.2f"|format(reservation.paid) }}{{ " · $%.2f left"|format(reservation.remaining) if reservation.remaining > 0 else "" }}
-                    </td>
-                    <td class="px-6 py-2">
-                        <span class="px-sm rounded-full font-caption text-[10px] uppercase {{ status_classes.get(reservation.status, 'bg-surface-container text-on-surface-variant') }}">{{ reservation.status }}</span>
                     </td>
                     <td class="px-6 py-2 text-right whitespace-nowrap">
                         <button class="p-1.5 text-on-surface-variant hover:text-primary transition-colors" onclick="document.getElementById('edit-reservation-dialog-{{ reservation.id }}').showModal()" title="Edit reservation" type="button">
@@ -366,7 +371,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td class="px-6 py-8 text-center font-body-md text-on-surface-variant" colspan="7">No reservations found.</td>
+                    <td class="px-6 py-8 text-center font-body-md text-on-surface-variant" colspan="6">No reservations found.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -428,7 +433,7 @@
         <form method="post" action="/admin/reservations" class="p-lg space-y-md">
             <div class="space-y-xs">
                 <label class="font-label-md text-on-surface-variant ml-1">Facility</label>
-                <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="pool_id" required>
+                <select class="w-full min-h-[40px] pl-lg pr-10 rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="pool_id" required>
                     {% for pool in pools %}
                     <option value="{{ pool.id }}" {{ 'selected' if pool.id == selected_pool_id }}>{{ pool.name }}</option>
                     {% endfor %}
@@ -467,7 +472,7 @@
             </div>
             <div class="space-y-xs">
                 <label class="font-label-md text-on-surface-variant ml-1">Status</label>
-                <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="status">
+                <select class="w-full min-h-[40px] pl-lg pr-10 rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="status">
                     <option value="pending">Pending</option>
                     <option value="confirmed">Confirmed</option>
                     <option value="cancelled">Cancelled</option>

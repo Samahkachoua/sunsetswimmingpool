@@ -24,7 +24,7 @@
         <form id="edit-reservation-form-{{ reservation.id }}" method="post" action="/admin/reservations/{{ reservation.id }}/edit" class="p-lg space-y-md">
             <div class="space-y-xs">
                 <label class="font-label-md text-on-surface-variant ml-1">Facility</label>
-                <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="pool_id" required>
+                <select class="w-full min-h-[40px] pl-lg pr-10 rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="pool_id" required>
                     {% for pool in pools %}
                     <option value="{{ pool.id }}" {{ 'selected' if pool.id == reservation.pool_id }}>{{ pool.name }}</option>
                     {% endfor %}
@@ -63,7 +63,7 @@
             </div>
             <div class="space-y-xs">
                 <label class="font-label-md text-on-surface-variant ml-1">Status</label>
-                <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="status">
+                <select class="w-full min-h-[40px] pl-lg pr-10 rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="status">
                     <option value="pending" {{ 'selected' if reservation.status == 'pending' }}>Pending</option>
                     <option value="confirmed" {{ 'selected' if reservation.status == 'confirmed' }}>Confirmed</option>
                     <option value="cancelled" {{ 'selected' if reservation.status == 'cancelled' }}>Cancelled</option>
@@ -121,7 +121,7 @@
             </div>
             <div class="space-y-xs">
                 <label class="font-label-md text-on-surface-variant ml-1">Method</label>
-                <select class="w-full min-h-[40px] px-lg rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="method">
+                <select class="w-full min-h-[40px] pl-lg pr-10 rounded-xl border border-outline-variant bg-surface-container-low focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all font-body-md text-on-surface" name="method">
                     <option value="cash">Cash</option>
                     <option value="whish">Whish</option>
                 </select>
