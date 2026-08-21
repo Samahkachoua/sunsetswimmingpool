@@ -8,6 +8,7 @@ import time
 from collections import defaultdict, deque
 from datetime import date, datetime, timedelta
 from datetime import date as date_cls
+from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -16,6 +17,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from postgrest.exceptions import APIError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.supabase_client import get_admin_user, sign_in_admin, supabase
 
@@ -298,9 +300,23 @@ class NotAuthenticated(Exception):
 
 @app.exception_handler(NotAuthenticated)
 def not_authenticated_handler(request: Request, exc: NotAuthenticated):
-    response = RedirectResponse(url=f"/admin/login?next={request.url.path}", status_code=303)
+    next_path = request.url.path
+    if request.method != "GET":
+        # Filters/sort/paging/edit actions are POST-only and not directly
+        # navigable, so redirecting back to them after login 405s. Send the
+        # user back to the page they were on instead.
+        referer = request.headers.get("referer")
+        next_path = urlparse(referer).path if referer else "/admin/dashboard"
+    response = RedirectResponse(url=f"/admin/login?next={next_path}", status_code=303)
     response.delete_cookie(SESSION_COOKIE)
     return response
+
+
+@app.exception_handler(StarletteHTTPException)
+def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    if exc.status_code == 404:
+        return templates.TemplateResponse(request, "404.html", status_code=404)
+    return JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers)
 
 
 def require_admin(request: Request) -> None:
