@@ -203,34 +203,34 @@
 </div>
 
 {% elif view == 'week' %}
-<div class="grid grid-cols-7 gap-2">
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-2">
     {% for day in week_days %}
     <div class="bg-surface-container rounded-xl border border-outline-variant/30 overflow-hidden flex flex-col {{ 'ring-2 ring-primary-container' if day.is_today else '' }}">
         <form action="/admin/reservations/filters" method="post">
             <input name="date" type="hidden" value="{{ day.date }}">
             <input name="view" type="hidden" value="day">
-            <button class="w-full text-center py-2 bg-surface-container-low border-b border-outline-variant/30 hover:bg-surface-container-high transition-colors" type="submit">
+            <button class="w-full flex items-center justify-center gap-2 md:flex-col md:gap-0 text-center py-2 bg-surface-container-low border-b border-outline-variant/30 hover:bg-surface-container-high transition-colors" type="submit">
                 <p class="font-caption text-caption text-outline uppercase tracking-wider">{{ day.label }}</p>
                 <p class="font-title-md text-title-md {{ 'text-primary-container font-bold' if day.is_today else 'text-primary' }}">{{ day.day_number }}</p>
             </button>
         </form>
-        <div class="p-2 space-y-1.5 flex-1 min-h-[220px]">
+        <div class="p-2 space-y-1.5 flex-1 md:min-h-[220px]">
             {% for entry in day.entries %}
             {% if entry.is_cycle %}
             <div class="rounded-lg border-l-4 border-dashed border-tertiary-fixed-dim bg-tertiary-fixed/10 px-2 py-1.5">
-                <p class="font-caption text-[11px] font-bold text-on-tertiary-fixed-variant truncate" title="{{ entry.cycle_name }}">{{ entry.cycle_name }}</p>
-                <p class="font-caption text-[10px] text-outline">{{ entry.time_range }}</p>
+                <p class="font-caption text-sm md:text-[11px] font-bold text-on-tertiary-fixed-variant truncate" title="{{ entry.cycle_name }}">{{ entry.cycle_name }}</p>
+                <p class="font-caption text-xs md:text-[10px] text-outline">{{ entry.time_range }}</p>
             </div>
             {% else %}
             <button class="w-full text-left rounded-lg border-l-4 shadow-sm px-2 py-1.5 bg-white hover:shadow-md transition-shadow {{ 'border-secondary' if entry.status == 'confirmed' else ('border-error' if entry.status == 'cancelled' else 'border-tertiary-fixed-dim') }}" onclick="document.getElementById('edit-reservation-dialog-{{ entry.id }}').showModal()" type="button">
-                <p class="font-caption text-[11px] font-bold text-primary truncate" title="{{ entry.customer_name }}">{{ entry.customer_name }}</p>
-                <p class="font-caption text-[10px] text-outline">{{ entry.time_range }}</p>
+                <p class="font-caption text-sm md:text-[11px] font-bold text-primary truncate" title="{{ entry.customer_name }}">{{ entry.customer_name }}</p>
+                <p class="font-caption text-xs md:text-[10px] text-outline">{{ entry.time_range }}</p>
             </button>
             {{ m.reservation_edit_dialog(entry, pools) }}
             {{ m.reservation_payment_dialog(entry, today_iso) }}
             {% endif %}
             {% else %}
-            <p class="font-caption text-[11px] text-on-surface-variant text-center py-4">—</p>
+            <p class="font-caption text-xs md:text-[11px] text-on-surface-variant text-center py-4">—</p>
             {% endfor %}
         </div>
     </div>
